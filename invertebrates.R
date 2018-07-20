@@ -11,7 +11,6 @@ Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors 
 BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
 #THIS IS THE INSECT DATA
 
-
 #clean the data frame
 Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), "TreatA"]
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
@@ -98,7 +97,28 @@ InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:9)], by=c("Taxa", "Family"))
 
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
-5.4*(4*4*pi)
+library(tidyverse)
+library(readxl)
+WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv")
+
+WCinv<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
+                              VolSampled=(14*19)*Depth.mm, #volume of petri dish = volume sampled nsamples * area of square * depth
+                              VolTotal=(8.3/2)^2*pi*Depth.mm,#volume of petri dish = area of dish * depth
+                              VolumePull=540*(4*4*pi), #volume of the tank sampled
+                              DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
+  group_by(Sample, Tank, Week) %>%
+  summarise(InvDen=sum(DensityNL)) %>% group_by(Tank, Week) %>% 
+  summarise(AvgDensityL=mean(InvDen))
+
+WCcom<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep=".")) %>% 
+  select(-Depth.mm, -Size.mm, -CountN,-Week,-Tank) %>% 
+  spread(Taxa, Count) %>% replace_na(list(ChironomidaeL=0,
+                                          Copepoda=0,
+                                          Daphnia=0,
+                                          DipteraAdult=0,
+                                          Dytiscidae=0,
+                                          Oligocheata=0))
+
 
 #### graph city ####
 
