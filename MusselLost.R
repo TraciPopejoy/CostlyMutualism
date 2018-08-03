@@ -4,7 +4,7 @@ library(tidyverse)
 
 
 mDW<-DeathWeight %>% 
-  gather(Date, Weight, -Tank, -Mussel) 
+  gather(Date, Weight, -Tank, -Mussel)
 mDW$Date<-as.POSIXct(as.numeric(mDW$Date)*(60*60*24), origin="1899-12-30")
 
 library(ggplot2)
