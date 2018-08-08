@@ -122,7 +122,7 @@ WCcom<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep=".")) %>%
 
 #### graph city ####
 
-fungraph<-theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
+fungraph<-theme(axis.text.x=element_text(angle = 00,size=12,color="black", hjust=1),
                 axis.text.y = element_text(size=12,color="black"),
                 axis.title.y=element_text(size=20),
                 plot.background = element_blank(),

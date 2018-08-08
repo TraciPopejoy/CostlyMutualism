@@ -2,11 +2,11 @@ library(tidyverse)
 
 #### HOBO Temperatures #####
 hobofiles<-list.files(pattern = "*.csv", path="./hobotem/")
-A3<-read.csv("./hobotem/A3_0_0.csv", header = F)
-C3<-read.csv("./hobotem/C3_0_0.csv", header = F)
-F4<-read.csv("./hobotem/F4_0_0.csv", header = F)
-E5<-read.csv("./hobotem/E5_0_1.csv", header = F)
-G1<-read.csv("./hobotem/G1_0_0.csv", header = F)
+A3<-read.csv("./hobotemp/A3_1.csv", header = F)
+C3<-read.csv("./hobotemp/C3_1.csv", header = F)
+F4<-read.csv("./hobotemp/F4_1.csv", header = F)
+E5<-read.csv("./hobotemp/E5_1.csv", header = F)
+G1<-read.csv("./hobotemp/G1_1.csv", header = F)
 
 colnames(A3)<-c("Date","Time","Temp.C","Intensity.Lux")
 A3<-A3[-c(1:2),-c(5:8)]
@@ -24,10 +24,7 @@ colnames(G1)<-c("Date","Time","Temp.C","Intensity.Lux")
 G1<-G1[-c(1:2),-c(5:8)]
 G1$Tank<-"W"
 
-watertemp1<-rbind(A3,C3)
-watertemp2<-rbind(watertemp1,F4)
-watertemp3<-rbind(watertemp2,E5)
-watertemp<-rbind(watertemp3,G1)
+watertemp<-rbind(A3,C3, F4, E5, G1)
 watertemp<-watertemp[watertemp$Temp.C!="",]
 
 library(lubridate)
@@ -53,7 +50,7 @@ ggplot(watertemp, aes(x=GoodDate, y=GoodTC, color=Tank))+
     scale_y_continuous(labels=fmt_dcimals(2))+theme_bw()
 
 library(darksky)
-airTemp<-seq(Sys.Date()-13, Sys.Date(), "1 day") %>%
+airTemp<-seq(ymd("2018-06-18"), ymd("2018-08-10"), "1 day") %>%
 map(~get_forecast_for(33.9987, -96.7197, .x)) %>% 
   map_df("hourly")
 airTemp$TempC<-(airTemp$temperature-32)*.5556
@@ -67,8 +64,6 @@ head(physchem)
 histTemp<-read_excel("./data/CostMutData.xlsx",sheet = "HistWeath") #accuweather
 histTemp$TempC<-(histTemp$HistTemps-32)*.5556
 
-
-
 ggplot()+geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
   geom_line(data=watertemp[watertemp$Tank=="L",], aes(x=GoodDate,y=GoodTC),color="blue",
             size=1.1)+
@@ -77,6 +72,14 @@ ggplot()+geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
   geom_point(data=histTemp, aes(x=Date, y=TempC), color="red", size=3)+
   ylab("Temperature degCelcius") + xlab("Date")+
   xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-06-29 12:00:00"))+theme_bw()
+ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
-
-ggsave("SiteDepth.tiff",SiteDepth,width=7, height=4, dpi=300)
+### covariate table
+head(physchem)
+physchem$Week<-as.factor(physchem$Week)
+physCOV<-physchem %>% left_join(treat) %>% 
+  filter(Time < ymd("2018-06-30"), !is.na(Week)) %>% group_by(Treatment, Week) %>% 
+  summarize(meanDO=round(mean(DO.mgL, na.rm=T),2),
+            meanCond=round(mean(Cond.uS, na.rm=T),0),
+            meanTemp=round(mean(Temp.C),1),
+            meanWV=round(mean(WaterV.mLs, na.rm=T),0))

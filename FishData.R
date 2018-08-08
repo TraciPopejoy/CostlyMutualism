@@ -8,8 +8,8 @@ FishData<-left_join(fish,treat, by="Tank") %>%
   mutate(LengthChange=DeadLength.mm - StandLength.mm,
          WeightChange=DeadWeight.g - Weight.g,
          InfectionDensALT=InfectionDensity.gloch,
-         DaysSurvived=interval(ymd("2018-06-18"),ymd(FishData$Died)) %/% days())
-FishData[is.na(FishData$InfectionDensity.gloch),22]<--1
+         DaysSurvived=interval(ymd("2018-06-18"),ymd(FishData$DiedALT)) %/% days())
+FishData[is.na(FishData$InfectionDensity.gloch),22]<--10
 FishData$InfectionRound<-as.factor(FishData$InfectionRound)
 
 ggplot(FishData[is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_histogram()
@@ -17,8 +17,9 @@ ggplot(FishData[!is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_his
 ggplot(FishData, aes(x=DaysSurvived, y=InfectionDensALT, color=Infected))+
   geom_point()+geom_smooth(method="lm")
 ggplot(FishData, aes(x=Died))+
-  geom_histogram()+facet_wrap(~Infected)
-ggplot(FishData, aes(x=InfectionRound, y=InfectionDensity.gloch))+geom_boxplot()
+  geom_histogram()+facet_grid(~Treatment+Infected)+
+  fungraph+theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1))
+ggplot(FishData, aes(x=InfectionRound, y=InfectionDensity.gloch))+geom_boxplot()+fungraph
 
 Infectiondata<-FishData %>% group_by(InfectionRound) %>% 
   summarize(meanInfection=mean(InfectionDensity.gloch, na.rm=T),
@@ -32,10 +33,18 @@ FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" &
 FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" & 
            FishData$InfectionRound==3,22]<-8
 ggplot(FishData, aes(x=DaysSurvived, y=InfectionDensALT, color=Infected))+
-  geom_point()+geom_smooth(method="lm")
+  geom_point()+geom_smooth(method="lm")+ylab("Infection Density (gloch per fish)")+
+  xlab("Days Survived")+scale_color_manual(values=c("Y"="red","N"="black"))+fungraph
 
 ggplot(FishData, aes(x=Died,y=Infected, fill=InfectionDensALT))+
-  geom_bar(stat="identity")+facet_wrap(~Infected)
+  geom_bar(stat="identity")+facet_grid(~Treatment+Infected)+
+  scale_fill_continuous("Infection Density",high="red")+fungraph+
+  theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
+        title=element_text(size=11))
+
+ggplot(FishData[FishData$InfectionDensALT!=-10,], aes(x=InfectionDensALT, y=WeightChange))+
+  geom_point()+geom_smooth(method="lm")+facet_grid(~Treatment+Infected, space="free")+fungraph+
+  ylab("Weight Change (g)")+xlab("Infection Density (gloch per fish)")
 
 DeadPerDayTreat<-FishData %>% group_by(Treatment, Infected, Died) %>% 
   summarize(n=n()) %>% filter(Died >"2018-06-18")
@@ -56,10 +65,13 @@ ggplot(DeadPerDayTreat, aes(x=Died, y=n, fill=Infected))+
   xlab("Day Fish Died, placed Jun 18")+
   facet_wrap(~Treatment)+theme_bw()
 
-CumDeathTEST<-FishData %>% group_by(Treatment,Tank, Infected, Died) %>% 
-  filter(Died <"2018-06-28") %>% summarise(nDied=n()) %>% 
+
+CumDeathTEST<-FishData  %>% 
+  filter(is.na(alive)) %>%
+  group_by(Treatment,Tank, Infected, Died) %>% 
+  filter(Died > "2018-06-19") %>% summarise(nDied=n()) %>% 
   mutate(cumDeath=cumsum(nDied),
-         Alive=10-cumDeath,
+         Alive=5-cumDeath,
          TreatType=paste(Treatment,Infected))
 
 ggplot(CumDeathTEST, aes(x=Died, y=cumDeath))+
@@ -68,10 +80,9 @@ ggplot(CumDeathTEST, aes(x=Died, y=cumDeath))+
   xlab("Day Fish Died, placed Jun 18")+theme_bw()
 
 ggplot(CumDeathTEST, aes(x=Died, y=Alive, color=TreatType))+
-  geom_jitter(alpha=.4, size=3, width=.2)+
+  #geom_jitter(alpha=.4, size=3, width=.2)+
   geom_smooth(method="lm", level=.5)+
-  ylab("Number of Alive Fish")+
-  xlab("Day, placed Jun 18")+
+  ylab("Number of Alive Fish")+fungraph
   scale_y_continuous(breaks=seq(1:10))+theme_bw()
 
 ggplot(CumDeathTEST, aes(x=Died, y=Alive, group=Tank))+
@@ -92,9 +103,11 @@ ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
 #check assumptions
 #figure out how to only do two variables?
 library(profileR)
-TankMean<-FishData %>% group_by(Tank, Infected, Treatment) %>% summarize(meanDaysSurv=mean(DaysSurvived, na.rm=T),
-                                                                         meanWeightChange=mean(WeightChange, na.rm=T),
-                                                                         meanInfect=mean(InfectionDensALT))
+TankMean<-FishData %>% 
+  group_by(Tank, Infected, Treatment) %>% 
+  summarize(meanDaysSurv=mean(DaysSurvived, na.rm=T),
+            meanWeightChange=mean(WeightChange, na.rm=T),
+            meanInfect=mean(InfectionDensALT))
 
 ggplot(TankMean, aes(x=Infected, y=meanWeightChange, color=meanInfect, group=Tank))+
   geom_jitter(size=3, width=.2)+ stat_summary(color="green")+
@@ -118,6 +131,23 @@ profD<-pbg(pData[3:6], group=pData$Treatment, original.names=T, profile.plot=T)
 print(profD)
 summary(profD)
 
+graphing<-pData %>% gather(variable, value, -c(Tank, Treatment))
+ggplot(graphing[graphing$variable=="Y.DaysSurv" | graphing$variable=="N.DaysSurv",], 
+       aes(x=variable, y=value, color=Treatment))+
+  stat_summary(aes(color=Treatment),size=2, alpha=.7, position=position_dodge(.3))+
+  theme_bw()+
+  scale_x_discrete("",labels=c("N.DaysSurv"="Not Infected","Y.DaysSurv"="Infected"))+
+  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
+  ylab("Tank Mean Days Survived")+fungraph+
+geom_line(aes(group=Tank), alpha=.2)
+ggplot(graphing[graphing$variable=="Y.WeightChange.g" | graphing$variable=="N.WeightChange.g",], 
+       aes(x=variable, y=value, color=Treatment))+
+  theme_bw()+stat_summary(aes(color=Treatment),size=2, alpha=.7, position=position_dodge(.3))+
+  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
+  scale_x_discrete("",labels=c("N.WeightChange.g"="Not Infected","Y.WeightChange.g"="Infected"))+
+  ylab("Tank Mean Weight Change (g)")+fungraph+
+geom_line(aes(group=Tank), alpha=.2)
+
 ### convert to z scores?
 Daysz<-TankMean %>%as.data.frame()%>% mutate(meanDaysSurvz=scale(meanDaysSurv)) %>%
   select(-meanInfect, -meanWeightChange, -meanDaysSurv) %>% 
@@ -132,3 +162,26 @@ names(profZZ)[3:6]<-c("N.DaysSurvZ","Y.DaysSurvZ","N.WeightChange.gZ","Y.WeightC
 profZan<-pbg(profZZ[3:6], group=profZZ$Treatment, original.names=T, profile.plot=T)
 print(profZan)
 summary(profZan)
+
+### paralellism - interaction between treatment & block
+### flatness -  Hotelling T test treatment effects 
+### levels - anova on the groupsz
+
+fsalive<-FishData %>% filter(!is.na(alive))
+ggplot(fsalive, aes(x=Infected))+geom_histogram()
+
+TankMean2<-FishData %>%
+  group_by(Tank, Infected, Treatment) %>% 
+  summarize(meanDaysSurv=mean(DaysSurvived, na.rm=T),
+            meanWeightChange=mean(WeightChange, na.rm=T),
+            meanInfect=mean(InfectionDensALT))
+
+anova(lm(meanDaysSurv~Treatment, TankMean))
+anova(lm(meanDaysSurv~Infected, TankMean2))
+testing<-aov(meanDaysSurv~Treatment, data=TankMean)
+summary(testing)
+plot(testing)
+TukeyHSD(testing)
+library(lsmeans)
+leastm<-lsmeans(testing, "Treatment",adjust="tukey")
+cld(leastm, alpha=.05, Letters=letters)
