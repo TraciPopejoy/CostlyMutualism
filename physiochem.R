@@ -1,47 +1,44 @@
 library(tidyverse)
 
 #### HOBO Temperatures #####
-hobofiles<-list.files(pattern = "*.csv", path="./hobotem/")
-A3<-read.csv("./hobotemp/A3_1.csv", header = F)
-C3<-read.csv("./hobotemp/C3_1.csv", header = F)
-F4<-read.csv("./hobotemp/F4_1.csv", header = F)
-E5<-read.csv("./hobotemp/E5_1.csv", header = F)
-G1<-read.csv("./hobotemp/G1_1.csv", header = F)
+A3<-read.csv("./hobotemp/A3.csv", header = F)
+C3<-read.csv("./hobotemp/C3.csv", header = F)
+F4<-read.csv("./hobotemp/F4.csv", header = F)
+E5<-read.csv("./hobotemp/E5.csv", header = F)
+G1<-read.csv("./hobotemp/G1.csv", header = F)
 
 colnames(A3)<-c("Date","Time","Temp.C","Intensity.Lux")
-A3<-A3[-c(1:2),-c(5:8)]
+A3<-A3[-c(1:2),-c(5:9)]
 A3$Tank<-"D"
 colnames(C3)<-c("Date","Time","Temp.C","Intensity.Lux")
-C3<-C3[-c(1:2),-c(5:8)]
+C3<-C3[-c(1:2),-c(5:9)]
 C3$Tank<-"Q"
 colnames(F4)<-c("Date","Time","Temp.C","Intensity.Lux")
 F4<-F4[-c(1:2),-c(5:8)]
 F4$Tank<-"L"
 colnames(E5)<-c("Date","Time","Temp.C","Intensity.Lux")
-E5<-E5[-c(1:2),-c(5:8)]
+E5<-E5[-c(1:2),-c(5:9)]
 E5$Tank<-"G"
 colnames(G1)<-c("Date","Time","Temp.C","Intensity.Lux")
-G1<-G1[-c(1:2),-c(5:8)]
+G1<-G1[-c(1:2),-c(5:9)]
 G1$Tank<-"W"
 
 watertemp<-rbind(A3,C3, F4, E5, G1)
-watertemp<-watertemp[watertemp$Temp.C!="",]
-
 library(lubridate)
-watertemp$GoodDate<-mdy_hms(watertemp[,2], tz="GMT")
-watertemp$Date<-date(watertemp$GoodDate)
-watertemp$GoodTC<-as.numeric(paste(watertemp$Temp.C))
-head(watertemp)
-ggplot(watertemp, aes(x=GoodDate, y=GoodTC))+geom_point()+facet_grid(~Tank)
-
-watertemp<-watertemp[watertemp$GoodDate<ymd_hms("2018-06-29 10:00:00"),]
+watertempGood<-watertemp %>% filter(Temp.C!="") %>% 
+  mutate(GoodDate=mdy_hms(Time, tz="GMT"),
+         Date=date(GoodDate),
+         GoodTC=as.numeric(paste(Temp.C))) %>%
+  filter(GoodDate < ymd_hms("2018-06-29 10:00:00") |
+         GoodDate > ymd_hms("2018-06-30 09:00:00")) %>%
+  filter(GoodDate < ymd_hms("2018-08-10 10:00:00"))
 
 library(scales)
 fmt_dcimals <- function(decimals=0){
   function(x) as.character(round(x,decimals))
 }
 
-ggplot(watertemp, aes(x=GoodDate, y=GoodTC, color=Tank))+
+ggplot(watertempGood, aes(x=GoodDate, y=GoodTC, color=Tank))+
     geom_line()+
     ylab("Water Temperature (deg C)")+xlab("Date")+
     scale_x_datetime(date_breaks="7 days", date_labels="%b %d")+
@@ -65,13 +62,14 @@ histTemp<-read_excel("./data/CostMutData.xlsx",sheet = "HistWeath") #accuweather
 histTemp$TempC<-(histTemp$HistTemps-32)*.5556
 
 ggplot()+geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
-  geom_line(data=watertemp[watertemp$Tank=="L",], aes(x=GoodDate,y=GoodTC),color="blue",
+  geom_line(data=watertempGood[watertempGood$Tank=="L",], aes(x=GoodDate,y=GoodTC),color="blue",
             size=1.1)+
   geom_point(data=physchem, aes(x=Time, y=Temp.C), color="blue")+
   geom_point(aes(x=ymd_hm("2018-06-28 14:00"), y=37), color="black")+
   geom_point(data=histTemp, aes(x=Date, y=TempC), color="red", size=3)+
   ylab("Temperature degCelcius") + xlab("Date")+
-  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-06-29 12:00:00"))+theme_bw()
+  ylim(19,37)+
+  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+theme_bw()
 ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 ### covariate table
@@ -83,3 +81,12 @@ physCOV<-physchem %>% left_join(treat) %>%
             meanCond=round(mean(Cond.uS, na.rm=T),0),
             meanTemp=round(mean(Temp.C),1),
             meanWV=round(mean(WaterV.mLs, na.rm=T),0))
+tempDailyData<-watertempGood %>% group_by(Date) %>% 
+  summarize(dailymax=max(GoodTC),
+            dailymin=min(GoodTC),
+            averagetemp=mean(GoodTC), 
+            dailyrange=max(GoodTC)-min(GoodTC))
+tempStats<-tempDailyData %>% summarise(avgMax=mean(dailymax),
+                                       avgMin=mean(dailymin),
+                                       avgTemp=mean(averagetemp),
+                                       avgTempRang=mean(dailyrange))

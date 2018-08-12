@@ -27,7 +27,7 @@ Infectiondata<-FishData %>% group_by(InfectionRound) %>%
             meanSurvival=mean(DaysSurvived, na.rm = T),
             sdSurvival=sd(DaysSurvived, na.rm=T))
 FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" & 
-           FishData$InfectionRound==1,22]<-10
+           FishData$InfectionRound==1,22]<-9
 FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" & 
            FishData$InfectionRound==2,22]<-3
 FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" & 
@@ -68,18 +68,18 @@ ggplot(DeadPerDayTreat, aes(x=Died, y=n, fill=Infected))+
 
 CumDeathTEST<-FishData  %>% 
   filter(is.na(alive)) %>%
-  group_by(Treatment,Tank, Infected, Died) %>% 
-  filter(Died > "2018-06-19") %>% summarise(nDied=n()) %>% 
+  group_by(Treatment,Tank, Infected, DiedALT) %>% 
+  filter(DiedALT > "2018-06-19") %>% summarise(nDied=n()) %>% 
   mutate(cumDeath=cumsum(nDied),
          Alive=5-cumDeath,
          TreatType=paste(Treatment,Infected))
 
-ggplot(CumDeathTEST, aes(x=Died, y=cumDeath))+
+ggplot(CumDeathTEST, aes(x=DiedALT, y=cumDeath))+
   geom_smooth(aes(color=Infected), method="lm")+geom_point(position="jitter")+
   ylab("Number of Dead Fish")+
   xlab("Day Fish Died, placed Jun 18")+theme_bw()
 
-ggplot(CumDeathTEST, aes(x=Died, y=Alive, color=TreatType))+
+ggplot(CumDeathTEST, aes(x=DiedALT, y=Alive, color=TreatType))+
   #geom_jitter(alpha=.4, size=3, width=.2)+
   geom_smooth(method="lm", level=.5)+
   ylab("Number of Alive Fish")+fungraph
@@ -138,15 +138,15 @@ ggplot(graphing[graphing$variable=="Y.DaysSurv" | graphing$variable=="N.DaysSurv
   theme_bw()+
   scale_x_discrete("",labels=c("N.DaysSurv"="Not Infected","Y.DaysSurv"="Infected"))+
   scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
-  ylab("Tank Mean Days Survived")+fungraph+
-geom_line(aes(group=Tank), alpha=.2)
+  ylab("Tank Mean Days Survived")+fungraph
+  #geom_line(aes(group=Tank), alpha=.2)
 ggplot(graphing[graphing$variable=="Y.WeightChange.g" | graphing$variable=="N.WeightChange.g",], 
        aes(x=variable, y=value, color=Treatment))+
   theme_bw()+stat_summary(aes(color=Treatment),size=2, alpha=.7, position=position_dodge(.3))+
   scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
   scale_x_discrete("",labels=c("N.WeightChange.g"="Not Infected","Y.WeightChange.g"="Infected"))+
-  ylab("Tank Mean Weight Change (g)")+fungraph+
-geom_line(aes(group=Tank), alpha=.2)
+  ylab("Tank Mean Weight Change (g)")+fungraph
+  #geom_line(aes(group=Tank), alpha=.2)
 
 ### convert to z scores?
 Daysz<-TankMean %>%as.data.frame()%>% mutate(meanDaysSurvz=scale(meanDaysSurv)) %>%
