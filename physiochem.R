@@ -72,7 +72,7 @@ ggplot()+geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
   xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+theme_bw()
 ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
-### covariate table
+#### covariate table ####
 head(physchem)
 physchem$Week<-as.factor(physchem$Week)
 physCOV<-physchem %>% left_join(treat) %>% 
@@ -90,3 +90,23 @@ tempStats<-tempDailyData %>% summarise(avgMax=mean(dailymax),
                                        avgMin=mean(dailymin),
                                        avgTemp=mean(averagetemp),
                                        avgTempRang=mean(dailyrange))
+
+### week date table
+unique(physchem$Week)
+WeekDate<-physchem %>% select(Week, Time) %>% group_by(Week) %>%
+            slice(1) %>% mutate(SamplingDate=date(Time))
+
+ggplot()+
+  geom_line(data=watertempGood[watertempGood$Tank=="L",], 
+            aes(x=GoodDate,y=GoodTC),color="blue") +
+  geom_vline(xintercept=ymd_hms("2018-06-12 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-06-17 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-06-29 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-07-06 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-07-13 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-07-27 12:00:00"), size=3, alpha=.4)+
+  geom_vline(xintercept=ymd_hms("2018-08-10 12:00:00"), size=3, alpha=.4)+
+  geom_text()
+  ylab("Temperature degCelcius") + xlab("Date")+
+  xlim(ymd_hms("2018-06-12 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+
+  theme_bw()
