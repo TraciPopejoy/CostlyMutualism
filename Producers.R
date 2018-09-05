@@ -53,8 +53,9 @@ KeyTile<-physchem %>% select(Date, Tank, Chl1, Chl2) %>%
 
 ChlTile<-Chl %>% inner_join(KeyTile) %>% 
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/discA)*1) %>%
-  select(-Notes) %>% group_by(Tank, Date) %>% summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
-                                                        Compartment="Benthic") %>%
+  select(-Notes) %>% group_by(Tank, Date) %>% 
+  summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
+            Compartment="Benthic") %>%
   left_join(treat)
 
 KeyFila<-physchem %>% select(Date, Tank, WCFilter1, FilterVolume1)
@@ -62,15 +63,21 @@ KeyFilb<-physchem %>% select(Date, Tank, WCFilter2, FilterVolume2)
 names(KeyFilb)[c(3,4)]<-c("WCFilter1","FilterVolume1")
 KeyFil<-rbind(KeyFila, KeyFilb)
   
-ChlFilter<-Chl %>% semi_join(KeyFil) %>% 
+ChlFilter<-Chl %>% inner_join(KeyFil, by=c("ChlSample"="WCFilter1")) %>% 
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/discA)*1) %>%
-  select(-Notes) %>% group_by(Tank, Date) %>% summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
-                                                        Compartment="Water Column")%>%
-  left_join(treat)
+  select(-Notes) %>%
+  group_by(Tank, Date) %>% 
+  summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
+            Compartment="Water Column")%>%
+  left_join(treat) 
 
+ChlSummary<- full_join(ChlFilter, ChlTile) %>% 
+  select(-Excretion, -InfectionRound, -Notes, -nLiveMussels)
 
 ggplot(ChlSummary, aes(x=Date, y=mChlA.ug.cm, color=NewTreat))+
-  geom_point(size=2, alpha=.5)
+  geom_boxplot() + 
+  facet_grid(~Compartment+Date, space="free",scales="free")+
+  theme(axis.text.x=element_text(angle = 30))
 
 ##### Ash-Free Dry Mass Analysis #####
 AFDM$DryMass<-AFDM$Tin.filter.dry-AFDM$Tare

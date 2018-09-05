@@ -20,7 +20,8 @@ ggplot(FishData, aes(x=Died))+
   geom_histogram()+facet_grid(~Treatment+Infected)+
   fungraph+theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1))
 ggplot(FishData[FishData$Infected=="Y",], 
-       aes(x=InfectionRound, y=InfectionDensity.gloch))+geom_boxplot()+fungraph
+       aes(x=InfectionRound, y=InfectionDensity.gloch))+geom_boxplot()+
+  ylab("Glochidia per fish")+xlab("Infection round")+fungraph
 
 #Infectiondata provides summary statistics of infection density
 Infectiondata<-FishData %>% filter(Infected=="Y") %>% group_by(InfectionRound) %>% 
@@ -28,6 +29,12 @@ Infectiondata<-FishData %>% filter(Infected=="Y") %>% group_by(InfectionRound) %
             sdInfection=sd(InfectionDensity.gloch, na.rm=T),
             meanSurvival=mean(DaysSurvived, na.rm = T),
             sdSurvival=sd(DaysSurvived, na.rm=T))
+
+#Infectiondata provides summary statistics of infection density
+FishData %>% filter(Infected=="Y") %>% 
+  summarize(meanInfection=mean(InfectionDensity.gloch, na.rm=T),
+            sdInfection=sd(InfectionDensity.gloch, na.rm=T))
+
 #this adds the mean density to fish that weren't dissected for their gills
 FishData[is.na(FishData$InfectionDensity.gloch) & FishData$Infected=="Y" & 
            FishData$InfectionRound==1,22]<-10
@@ -103,76 +110,50 @@ ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
 ###### Profile Analysis #####
 #need to reference David & Davenport 2002
 #check assumptions
-#figure out how to only do two variables?
 TankMean<-FishData %>% 
   group_by(Tank, Infected, Treatment) %>% 
   summarize(meanDaysSurv=mean(DaysSurvived, na.rm=T),
             meanWeightChange=mean(WeightChange, na.rm=T),
             meanInfect=mean(InfectionDensALT, na.rm=T))
 
+graphing<-TankMean %>% select(-meanInfect, -meanWeightChange) %>% 
+  spread(Infected, meanDaysSurv)%>% gather(variable, value, -c(Tank, Treatment))
+ggplot(graphing, 
+       aes(x=variable, y=value, color=Treatment))+
+  geom_point(aes(color=Treatment), size=2,alpha=.4, position=position_dodge(.3))+
+  stat_summary(aes(color=Treatment),size=2, alpha=1, position=position_dodge(.3))+
+  theme_bw()+
+  scale_x_discrete("",labels=c("N"="Not Infected","Y"="Infected"))+
+  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
+  ylab("Tank Mean Days Survived")+theme_bw()
+  #geom_line(aes(group=Tank), alpha=.2)
+
+##### Covariate data
+ChlSummary
+ChlFish <- ChlSummary %>% filter(Date < ymd("2018-07-02"))
+
+ggplot(ChlFish, aes(x=Date, y=mChlA.ug.cm, fill=Treatment))+
+  geom_boxplot()+
+  facet_wrap(~Compartment+Date, scales="free_x", nrow=2)+
+  theme_bw()+xlab(NULL)
+
+
+##### Sept4 #####
+head(TankMean)
+profDATA<-TankMean %>% select(-meanWeightChange, -meanInfect) %>% spread(Infected,meanDaysSurv)
+#paralellism   H0: u1=u2=u3   manova
+fit <- manova(cbind(N,Y) ~ Treatment, data=profDATA)
+summary(fit)
+#means match
+
+#flatness   H0: (parameter.matrix)(difference.matrix)=0   hotelling T
 library(Hotelling)
 #comparing means of two samples (t test for multivariate data)
 #null hypothesis - vectors of means are equal
-hotTANK<-hotelling.test(meanDaysSurv~Treatment, data=TankMean)
+hotTANK<-hotelling.test(meanDaysSurv~Infected, data=TankMean)
 hotTANK
-summary(aov(lm(meanDaysSurv~Treatment,data=TankMean)))
+#no difference between infected & noninfected
 
-library(profileR)
-### paralellism - interaction between treatment & block
-### flatness -  Hotelling T test treatment effects 
-### levels - anova on the groupsz
-ggplot(TankMean, aes(x=Infected, y=meanWeightChange, color=meanInfect, group=Tank))+
-  geom_jitter(size=3, width=.2)+ stat_summary(color="green")+
-  ylab("Post-mortem weight change (grams)")+facet_wrap(~Treatment)
-
-summary(lm(meanWeightChange~Treatment+Infected, TankMean))
-
-ggplot(TankMean, aes(Infected, y=meanDaysSurv, color=meanInfect))+
-  geom_jitter(size=3)+stat_summary(color="green") + facet_wrap(~Treatment)
-
-summary(lm(meanDaysSurv~Treatment+Infected, TankMean))
-
-#getting data into formats??
-DaysSurvprof<-TankMean %>% select(-meanInfect, -meanWeightChange) %>% 
-  spread(Infected, meanDaysSurv)%>% as.data.frame()
-Weightprof<-TankMean %>% select(-meanInfect, -meanDaysSurv) %>% 
-  spread(Infected, meanWeightChange)%>% as.data.frame()
-pData<-cbind(DaysSurvprof, Weightprof[,3:4])
-names(pData)[3:6]<-c("N.DaysSurv","Y.DaysSurv","N.WeightChange.g","Y.WeightChange.g")
-
-## data frame for good graphs
-graphing<-pData %>% gather(variable, value, -c(Tank, Treatment))
-# pretty graph comparing days survived
-ggplot(graphing[graphing$variable=="Y.DaysSurv" | graphing$variable=="N.DaysSurv",], 
-       aes(x=variable, y=value, color=Treatment))+
-  stat_summary(aes(color=Treatment),size=2, alpha=.7, position=position_dodge(.3))+
-  theme_bw()+
-  scale_x_discrete("",labels=c("N.DaysSurv"="Not Infected","Y.DaysSurv"="Infected"))+
-  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
-  ylab("Tank Mean Days Survived")+fungraph
-  #geom_line(aes(group=Tank), alpha=.2)
-#pretty graph comparing weights
-ggplot(graphing[graphing$variable=="Y.WeightChange.g" | graphing$variable=="N.WeightChange.g",], 
-       aes(x=variable, y=value, color=Treatment))+
-  theme_bw()+stat_summary(aes(color=Treatment),size=2, alpha=.7, position=position_dodge(.3))+
-  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
-  scale_x_discrete("",labels=c("N.WeightChange.g"="Not Infected","Y.WeightChange.g"="Infected"))+
-  ylab("Tank Mean Weight Change (g)")+fungraph
-  #geom_line(aes(group=Tank), alpha=.2)
-
-### convert to z scores- appropriate for profiles with different variables!
-## uses profile analysis to look at all variables that are important (weight and survival)
-library(profileR)
-Daysz<-TankMean %>%as.data.frame()%>% mutate(meanDaysSurvz=scale(meanDaysSurv)) %>%
-  select(-meanInfect, -meanWeightChange, -meanDaysSurv) %>% 
-  spread(Infected, meanDaysSurvz)
-Weightz<-TankMean %>%as.data.frame()%>% mutate(meanWeightChangez=scale(meanWeightChange)) %>%
-  select(-meanInfect, -meanWeightChange, -meanDaysSurv) %>% 
-  spread(Infected, meanWeightChangez)
-
-profZZ<-cbind(Daysz, Weightz[,3:4])
-names(profZZ)[3:6]<-c("N.DaysSurvZ","Y.DaysSurvZ","N.WeightChange.gZ","Y.WeightChange.gZ")
-
-profZan<-pbg(profZZ[3:6], group=profZZ$Treatment, original.names=T, profile.plot=T)
-print(profZan)
-summary(profZan)
+#levels   H0: slopes are equal anova on groups
+summary(aov(meanDaysSurv~Treatment, data=TankMean))
+#difference between groups

@@ -1,7 +1,16 @@
-library(readxl)
-DeathWeight<-read_excel("./data/CostMutData.xlsx",sheet = "DeathWeights")
-library(tidyverse)
+#### Mussel Communities ####
+library(readxl); library(tidyverse)
 
+MusselRaw<-read_excel("./data/CostMutData.xlsx",sheet = "MusselLengths")
+MusselRaw %>% group_by(Tank) %>% summarise(n=n())
+
+MusselCom <- MusselRaw %>% group_by(Tank, Spp) %>% 
+  summarise(n=n(), AvgLength.mm=mean(Length.mm))
+
+
+
+#### Mussel Tissue Decay ####
+DeathWeight<-read_excel("./data/CostMutData.xlsx",sheet = "DeathWeights")
 
 mDW<-DeathWeight %>% 
   gather(Date, Weight, -Tank, -Mussel)
