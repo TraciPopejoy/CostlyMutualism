@@ -1,10 +1,27 @@
+#### Ecology of FW fishes theme #####
+fishTheme<-theme(axis.text.x=element_text(angle = 00,size=12,color="black", hjust=.5),
+                axis.text.y = element_text(size=12,color="black"),
+                axis.title.y=element_text(size=18),
+                plot.background = element_blank(),
+                panel.border=element_blank(),
+                panel.grid.major= element_line(colour=NA), 
+                panel.grid.minor=element_line(colour=NA),
+                title=element_text(size=18),
+                panel.background = element_rect(fill = "white"),
+                legend.key=element_rect(colour=NA), 
+                axis.line.x=element_line(colour="black"),
+                axis.line.y=element_line(colour="black"),
+                strip.background=element_rect(fill="white", color="black"),
+                strip.text=element_text(size=15))
+
+
 library(readxl)
 fish<-read_excel("./data/CostMutData.xlsx", sheet="FishData")
 
 treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
 library(tidyverse)
 library(lubridate)
-FishData<-left_join(fish,treat, by="Tank") %>% 
+FishData <-left_join(fish,treat, by="Tank") %>% 
   mutate(LengthChange=DeadLength.mm - StandLength.mm,
          WeightChange=DeadWeight.g - Weight.g,
          InfectionDensALT=InfectionDensity.gloch,
@@ -99,7 +116,6 @@ ggplot(CumDeathTEST, aes(x=DiedALT, y=Alive, color=Treatment))+
   geom_smooth(method="lm", level=.5)+
   ylab("Number of Alive Fish")+fungraph
 
-
 FishData$TreatmentType<-paste(FishData$Treatment, FishData$Infected)
 ggplot(FishData, aes(x=Died, y=Weight.g, color=TreatmentType))+
   geom_point()+geom_smooth(method="lm", level=.2)
@@ -107,53 +123,133 @@ ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
   geom_point()+
   geom_smooth(method="lm", level=.2)
 
-###### Profile Analysis #####
-#need to reference David & Davenport 2002
-#check assumptions
-TankMean<-FishData %>% 
-  group_by(Tank, Infected, Treatment) %>% 
-  summarize(meanDaysSurv=mean(DaysSurvived, na.rm=T),
-            meanWeightChange=mean(WeightChange, na.rm=T),
-            meanInfect=mean(InfectionDensALT, na.rm=T))
-
 graphing<-TankMean %>% select(-meanInfect, -meanWeightChange) %>% 
   spread(Infected, meanDaysSurv)%>% gather(variable, value, -c(Tank, Treatment))
 ggplot(graphing, 
        aes(x=variable, y=value, color=Treatment))+
-  geom_point(aes(color=Treatment), size=2,alpha=.4, position=position_dodge(.3))+
-  stat_summary(aes(color=Treatment),size=2, alpha=1, position=position_dodge(.3))+
+  geom_point(aes(color=Treatment), size=2,alpha=.3, position=position_dodge(.5))+
+  stat_summary(aes(color=Treatment),size=2, alpha=1, position=position_dodge(.5))+
   theme_bw()+
   scale_x_discrete("",labels=c("N"="Not Infected","Y"="Infected"))+
-  scale_color_manual(values=c("Mussel"="goldenrod3","Control"="steelblue"))+
-  ylab("Tank Mean Days Survived")+theme_bw()
+  scale_color_manual(values=c("Mussel"="grey","Control"="black"))+
+  ylab("Average Fish Survival (days)")+fishTheme
   #geom_line(aes(group=Tank), alpha=.2)
 
-##### Covariate data
-ChlSummary
-ChlFish <- ChlSummary %>% filter(Date < ymd("2018-07-02"))
+##### COX Regression #####
+#need to have a list with dataframes of time, status, and variables to consider
+FishSurv1<-FishData %>% filter(Died >= ymd("2018-06-20")) %>% 
+  select(Died, ID,Tank,Infected, Treatment, alive) %>%
+  gather(variable, value, c(-Died, -ID,-Tank, -Treatment, -alive)) %>% 
+  group_by(Died, ID) %>%
+  mutate(status=n(), 
+         status.char="dead",
+         timeNumA=interval(ymd("2018-06-18"),ymd(Died)) %/% days()) %>% select(-variable)
+FishSurv1[FishSurv1$alive=="ALIVE" &
+          !is.na(FishSurv1$alive), 7]<-0
 
-ggplot(ChlFish, aes(x=Date, y=mChlA.ug.cm, fill=Treatment))+
-  geom_boxplot()+
-  facet_wrap(~Compartment+Date, scales="free_x", nrow=2)+
-  theme_bw()+xlab(NULL)
+InvBMslope<-InvBMSum %>% ungroup() %>% filter(Week==1 | Week==2) %>%
+  select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
+  mutate(InvBMrate=(`2`-`1`)/12)
+InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>% 
+  add_column(Tank=rep(sort(unique(FishSurv1$Tank)),10)) %>% arrange(Tank) %>%
+  mutate(timeNumA=interval(ymd("2018-06-18"),ymd(Date)) %/% days()) %>% 
+  left_join(InvBMslope) %>% 
+  mutate(Est.I.bm=InvBMrate*timeNumA + `1`)
+         
+FST<-left_join(FishSurv1, InvBModel) %>% 
+  select(-status.char, -alive,-`1`,-`2`,-InvBMrate)
 
+TempModel<- watertempGood %>% filter(Date <= ymd("2018-06-30") &
+                                       Date >= ymd("2018-06-18")) %>%
+  select(Date, GoodTC, Tank) %>% group_by(Tank,Date) %>% filter(GoodTC >=30) %>%
+  summarize(Count.30over=n()) %>% mutate(Date.x=as.POSIXct.Date(Date)+24*60*60,
+                                         Cum.30over=cumsum(Count.30over)) 
 
-##### Sept4 #####
-head(TankMean)
-profDATA<-TankMean %>% select(-meanWeightChange, -meanInfect) %>% spread(Infected,meanDaysSurv)
-#paralellism   H0: u1=u2=u3   manova
-fit <- manova(cbind(N,Y) ~ Treatment, data=profDATA)
-summary(fit)
-#means match
+FSTreduced<- FST %>% filter(Tank=="D" | Tank=="G" | Tank=="L" | Tank=="W" | Tank=="Q") %>%
+  left_join(TempModel, by=c("Tank","Date"="Date.x")) %>%
+  select(-Date, -Date.y) %>% filter (!is.na(status))
 
-#flatness   H0: (parameter.matrix)(difference.matrix)=0   hotelling T
-library(Hotelling)
-#comparing means of two samples (t test for multivariate data)
-#null hypothesis - vectors of means are equal
-hotTANK<-hotelling.test(meanDaysSurv~Infected, data=TankMean)
-hotTANK
-#no difference between infected & noninfected
+library(survival)
+M1<-coxph(Surv(timeNumA, status)~Treatment, data=FST)
+summary(M1)
+M2<-coxph(Surv(timeNumA, status)~value, data=FST)
+summary(M2)
+M3<-coxph(Surv(timeNumA, status)~Est.I.bm, data=FST)
+summary(M3)
+M4<-coxph(Surv(timeNumA, status)~Treatment+value, data=FST)
+summary(M4)
+M5<-coxph(Surv(timeNumA, status)~Treatment+Est.I.bm, data=FST)
+summary(M5)
+M6<-coxph(Surv(timeNumA, status)~Est.I.bm+value, data=FST)
+summary(M6)
+M7<-coxph(Surv(timeNumA, status)~Treatment*value, data=FST)
+summary(M7)
+M8<-coxph(Surv(timeNumA, status)~Treatment*Est.I.bm, data=FST)
+summary(M8)
+M9<-coxph(Surv(timeNumA, status)~Est.I.bm*value, data=FST)
+summary(M9)
+M10<-coxph(Surv(timeNumA, status)~Treatment*Est.I.bm*value, data=FST)
+summary(M10)
+M0<-coxph(Surv(timeNumA, status)~1, data=FST)
+summary(M0)
 
-#levels   H0: slopes are equal anova on groups
-summary(aov(meanDaysSurv~Treatment, data=TankMean))
-#difference between groups
+test<-data.frame(BIC(M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
+                 variables=c("Null",
+                             "Treatment",
+                             "Infection",
+                             "Inv BM",
+                             "Treatment + Infection",
+                             "Treatment + Inv BM",
+                             "Inv BM + Infection",
+                             "Treatment * Infection",
+                             "Treatment * Inv BM",
+                             "Inv BM * Infection",
+                             "Treatment * Inv BM * Infection")) %>%
+  mutate(model=c("M0","M1","M2","M3","M4","M5","M6","M7","M8","M9","M10"),
+         deltaBIC=BIC-min(test[test$model!="M0",2]))
+
+loglikely<-tibble(model=c("M1","M2","M3","M4","M5","M6","M7","M8","M9","M10")) %>%
+  group_by(model)%>%
+  mutate(loglik=round(as.numeric(get(model)$score),2),
+         rsq=round(summary(get(model))$rsq[1],2),
+         conc=round(summary(get(model))$concordance[1],2),
+         logp.val=round(summary(get(model))$logtest[3],4))
+
+modelTableM<-full_join(test, loglikely, by="model") %>% arrange(deltaBIC)
+
+ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
+           pval = TRUE, conf.int = TRUE,
+           risk.table = T, # Add risk table
+           risk.table.col = "strata", # Change risk table color by groups
+           linetype = 1, # Change line type by groups
+           surv.median.line = "hv") # Specify median survival)
+
+R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
+summary(R1)
+R2<-coxph(Surv(timeNumA, status)~Cum.30over, data=FSTreduced)
+summary(R2)
+R3<-coxph(Surv(timeNumA, status)~Treatment+Cum.30over+Est.I.bm, data=FSTreduced)
+summary(R3)
+R4<-coxph(Surv(timeNumA, status)~Cum.30over+Est.I.bm, data=FSTreduced)
+summary(R4)
+R0<-coxph(Surv(timeNumA, status)~1, data=FSTreduced)
+summary(R0)
+
+TempR<-data.frame(BIC(R0,R1,R2,R3, R4),
+                 variables=c("Null",
+                             "Treatment + Infection + Temperature",
+                             "Temperature",
+                             "Treatment + Temperature + Inv BM",
+                             "Temperature + Inv BM")) %>%
+  mutate(model=c("R0","R1","R2","R3", "R4"), deltaBIC=BIC-min(TempR[TempR$model!="R0",2]))
+
+TempLL<-tibble(model=c("R1","R2","R3","R4")) %>%  group_by(model)%>%
+  mutate(loglik=round(as.numeric(get(model)$score),2),
+         rsq=round(summary(get(model))$rsq[1],2),
+         conc=round(summary(get(model))$concordance[1],2),
+         logp.val=round(summary(get(model))$logtest[3],6))
+
+TempModelTable<-full_join(TempR, TempLL, by="model") %>% arrange(deltaBIC)
+mt<-rbind(modelTableM,TempModelTable)
+
+write.csv(mt, "modeltable1.csv")

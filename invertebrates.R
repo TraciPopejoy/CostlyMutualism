@@ -51,10 +51,9 @@ biomass<-function(Fam, Ord, Length) {
   tmass<-cbind(tmass,mass) #get vector of mass values from different eq.
 }
 InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
-  group_by(TxW, Family, Length.mm) %>% 
+  group_by(TxW, Taxa, Family, Length.mm) %>% 
   mutate(BM=mean(biomass(Family,Order, Length.mm)),
          TotalBM=Count*BM)
-#warnings from groups that >1 column
 
 InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>% 
     summarize(TotalBiomass=sum(TotalBM, na.omit=T),
@@ -74,8 +73,13 @@ BiomGraph<-InvBMSum %>%
   gather(variable, value, -c(TxW,Tank,Week,Treatment,NewTreat)) %>% 
   filter(variable!="Richness" & variable!="BMDensity")
 
-ggplot(BiomGraph, aes(x=Week, y=value, fill=Treatment))+
-  geom_boxplot()+facet_wrap(~variable, scale="free")+theme_bw()
+ggplot(BiomGraph[BiomGraph$variable="TotalBiomass",], 
+       aes(x=Week, y=value, fill=Treatment))+
+  geom_boxplot()+facet_wrap(~variable, scale="free")+fishTheme
+
+ggplot(BiomGraph, aes(x=Week, y=value, color=NewTreat))+
+  geom_point(position=position_dodge(width=.4))+facet_wrap(~variable, scale="free")+theme_bw()
+  fishTheme
 
 fishinv<-lm(TotalBiomass~Treatment, data=InvBMSum)
 summary(fishinv)

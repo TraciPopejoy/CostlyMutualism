@@ -42,8 +42,9 @@ ggplot(watertempGood, aes(x=GoodDate, y=GoodTC, color=Tank))+
     geom_line()+
     ylab("Water Temperature (deg C)")+xlab("Date")+
     scale_x_datetime(date_breaks="7 days", date_labels="%b %d")+
-    geom_hline(yintercept = 31, 
+    geom_hline(yintercept = 35, 
                color="red",alpha=.3,cex=2)+
+  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+
     scale_y_continuous(labels=fmt_dcimals(2))+theme_bw()
 
 library(darksky)
@@ -61,22 +62,28 @@ head(physchem)
 histTemp<-read_excel("./data/CostMutData.xlsx",sheet = "HistWeath") #accuweather
 histTemp$TempC<-(histTemp$HistTemps-32)*.5556
 
-ggplot()+geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
-  geom_line(data=watertempGood[watertempGood$Tank=="L",], aes(x=GoodDate,y=GoodTC),color="blue",
+ggplot()+
+  #geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1.3) +
+  geom_line(data=watertempGood, aes(x=GoodDate,y=GoodTC, group=Tank),color="blue",
             size=1.1)+
+  geom_hline(yintercept = 35, color="purple")+
   geom_point(data=physchem, aes(x=Time, y=Temp.C), color="blue")+
-  geom_point(aes(x=ymd_hm("2018-06-28 14:00"), y=37), color="black")+
-  geom_point(data=histTemp, aes(x=Date, y=TempC), color="red", size=3)+
+  #geom_point(aes(x=ymd_hm("2018-06-28 14:00"), y=37), color="black")+
+  #geom_point(data=histTemp, aes(x=Date, y=TempC), color="red", size=3)+
   ylab("Temperature degCelcius") + xlab("Date")+
-  ylim(19,37)+
-  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+theme_bw()
+  ylim(22,37)+
+  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-06-29 08:00:00"))+theme_bw()
 ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 #### covariate table ####
 head(physchem)
 physchem$Week<-as.factor(physchem$Week)
+pcgraph<-physchem %>% left_join(treat) %>% mutate(WaterV.cfs=WaterV.mLs*3.53147e-5)
+ggplot(pcgraph, aes(x=Date, y=WaterV.cfs, color=Treatment))+
+  geom_point(size=2, alpha=.6, position = position_jitter(width=1))+fungraph
 physCOV<-physchem %>% left_join(treat) %>% 
-  filter(Time < ymd("2018-06-30"), !is.na(Week)) %>% group_by(Treatment, Week) %>% 
+  filter(Time < ymd("2018-06-30"), !is.na(Week)) %>% 
+  group_by(Treatment, Week) %>% 
   summarize(meanDO=round(mean(DO.mgL, na.rm=T),2),
             meanCond=round(mean(Cond.uS, na.rm=T),0),
             meanTemp=round(mean(Temp.C),1),
@@ -86,10 +93,31 @@ tempDailyData<-watertempGood %>% group_by(Date) %>%
             dailymin=min(GoodTC),
             averagetemp=mean(GoodTC), 
             dailyrange=max(GoodTC)-min(GoodTC))
-tempStats<-tempDailyData %>% summarise(avgMax=mean(dailymax),
-                                       avgMin=mean(dailymin),
-                                       avgTemp=mean(averagetemp),
-                                       avgTempRang=mean(dailyrange))
+tempStats<-tempDailyData %>% filter(Date > ymd("2018-06-18") &
+                                    Date < ymd("2018-06-29")) %>%
+  summarise(avgMax=mean(dailymax),
+            avgMin=mean(dailymin),
+            avgTemp=mean(averagetemp),
+            avgTempRang=mean(dailyrange),
+            MIN=min(dailymin),
+            MAX=max(dailymax),
+            maxRANGE=max(dailyrange))
+library(tidyverse)
+library(dataRetrieval)
+nwisQW <- readNWISqw(c("07338500","07337900", "07336200"),
+                     "00010", 
+                     startDate = "1960-01-01", 
+                     endDate = "2015-12-30") %>%
+  select(site_no, sample_dt, result_va)
+library(lubridate)
+View(nwisQW %>% mutate(Month=months(sample_dt),
+                  Year=year(sample_dt)) %>% 
+  filter(Month=="June" | Month=="July" | Month=="August") %>%
+  group_by(site_no, Year) %>%
+  summarize(count=n(),
+            avgT=mean(result_va, na.omit=T)))
+
+                    
 
 ### week date table
 unique(physchem$Week)
