@@ -1,11 +1,38 @@
 #### Mussel Communities ####
 library(readxl); library(tidyverse)
 
-MusselRaw<-read_excel("./data/CostMutData.xlsx",sheet = "MusselLengths")
-MusselRaw %>% group_by(Tank) %>% summarise(n=n())
+MusselRaw<-read_excel("./data/CostMutData.xlsx",sheet = "MusselLengths") %>%
+  add_column(BME=rep(NA,279))
+MusselRaw %>% group_by(Tank, Spp) %>% summarise(n=n()) %>% spread(Spp, n)
 
-MusselCom <- MusselRaw %>% group_by(Tank, Spp) %>% 
-  summarise(n=n(), AvgLength.mm=mean(Length.mm))
+mreg<-read_excel("./LENGTH-MASS_CLA_CCV_20161208-reg coefficients.xlsx", sheet = 2)
+mreg$Spp<-c("boot","all","ACT","AMB","OREF","POCC","QVER","FFLA")
+
+for(j in 1:nrow(MusselRaw)){
+  if(is.na(match(MusselRaw$Spp, mreg$Spp)[j])) {
+  MusselRaw$BME[j]<-as.numeric(mreg[2,2]*(MusselRaw$Length.mm[j]^mreg[2,5]))
+}else{
+  MusselRaw$BME[j]<-as.numeric(mreg[match(MusselRaw$Spp, mreg$Spp)[j],2]*
+                                 (MusselRaw$Length.mm[j]^mreg[match(MusselRaw$Spp, mreg$Spp)[j],5])) 
+}}
+
+MusselComSpp <- MusselRaw %>% group_by(Tank, Spp) %>% 
+  summarise(n=n(), AvgLength.mm=mean(Length.mm), AvgBM=mean(BME), sumBM=sum(BME))
+MusselCom <- MusselRaw %>% group_by(Tank) %>% 
+  summarise(n=n(), AvgLength.mm=round(mean(Length.mm, na.rm=T),0), 
+            AvgBM=round(mean(BME, na.rm=T),1), 
+            sumBM=round(sum(BME, na.rm=T),1),
+            musselNDen=round(n/pi*(1.8288/2)^2,2),
+            musselBMDen=round(sumBM/pi*(1.8288/2)^2,1)) %>% select(-n,-musselNDen)
+FishCom<- FishData %>% group_by(Tank) %>% 
+  summarise(n=n(), FAvgLength.mm=round(mean(StandLength.mm, na.rm=T),0), 
+            FAvgBM=round(mean(Weight.g, na.rm=T),1), 
+            FsumBM=round(sum(Weight.g, na.rm=T),1),
+            FishND=round(n/pi*(1.8288/2)^2,2),
+            FishBMDen=round(FsumBM/pi*(1.8288/2)^2,1)) %>% select(-n, -FishND)
+bigComdata<-full_join(MusselCom, FishCom)
+write.csv(bigComdata, "musselcomdata.csv")
+### Mussel density = 8.25/m2, Fish density = 2.66/m2
 
 
 
