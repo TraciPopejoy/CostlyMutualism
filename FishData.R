@@ -29,6 +29,11 @@ FishData <-left_join(fish,treat, by="Tank") %>%
 FishData$InfectionRound<-as.factor(FishData$InfectionRound)
 #FishData is individual fish in rows with subsequent variables
 
+FishData %>% group_by(Treatment) %>% 
+  summarise(meanW=mean(Weight.g),sdW=sd(Weight.g),
+            meanL=mean(StandLength.mm), sdL=sd(StandLength.mm))
+
+
 ggplot(FishData[is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_histogram()
 ggplot(FishData[!is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_histogram()
 ggplot(FishData, aes(x=DaysSurvived, y=InfectionDensALT, color=Infected))+
@@ -147,7 +152,8 @@ FishSurv1<-FishData %>% filter(Died >= ymd("2018-06-20")) %>%
 FishSurv1[FishSurv1$alive=="ALIVE" &
           !is.na(FishSurv1$alive), 7]<-0
 
-InvBMslope<-InvBMSum %>% ungroup() %>% filter(Week==1 | Week==2) %>%
+InvBMslope<-InvBMSum %>% ungroup() %>%
+  filter(Week==1 | Week==2) %>%
   select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
   mutate(InvBMrate=(`2`-`1`)/12)
 InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>% 
@@ -157,7 +163,9 @@ InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>%
   mutate(Est.I.bm=InvBMrate*timeNumA + `1`)
          
 FST<-left_join(FishSurv1, InvBModel) %>% 
-  select(-status.char, -alive,-`1`,-`2`,-InvBMrate)
+  select(-status.char, -alive)
+
+giantmodel<-coxph(Surv(timeNumA, status)~Treatment+value+`1`+Est.I.bm, data=FST)
 
 TempModel<- watertempGood %>% filter(Date <= ymd("2018-06-30") &
                                        Date >= ymd("2018-06-18")) %>%
@@ -193,7 +201,7 @@ summary(M10)
 M0<-coxph(Surv(timeNumA, status)~1, data=FST)
 summary(M0)
 
-test<-data.frame(BIC(M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
+FullModels<-data.frame(BIC(M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
                  variables=c("Null",
                              "Treatment",
                              "Infection",
@@ -206,7 +214,7 @@ test<-data.frame(BIC(M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
                              "Inv BM * Infection",
                              "Treatment * Inv BM * Infection")) %>%
   mutate(model=c("M0","M1","M2","M3","M4","M5","M6","M7","M8","M9","M10"),
-         deltaBIC=BIC-min(test[test$model!="M0",2]))
+         deltaBIC=BIC - min(FullModels[FullModels$model!="M0",2]))
 
 loglikely<-tibble(model=c("M1","M2","M3","M4","M5","M6","M7","M8","M9","M10")) %>%
   group_by(model)%>%
@@ -215,14 +223,59 @@ loglikely<-tibble(model=c("M1","M2","M3","M4","M5","M6","M7","M8","M9","M10")) %
          conc=round(summary(get(model))$concordance[1],2),
          logp.val=round(summary(get(model))$logtest[3],4))
 
-modelTableM<-full_join(test, loglikely, by="model") %>% arrange(deltaBIC)
-
-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
+modelTableM<-full_join(FullModels, loglikely, by="model") %>% arrange(deltaBIC) %>%
+  select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
+library(survminer)
+TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
            pval = TRUE, conf.int = TRUE,
-           risk.table = T, # Add risk table
+           risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
-           surv.median.line = "hv") # Specify median survival)
+           palette="jco",
+           surv.median.line = "hv",  # Specify median survival
+           legend.title="Tank Treatment",
+           legend.labs=c("Control","Mussel"),
+           xlab="Time (days)")
+IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
+           pval = TRUE, conf.int = TRUE,
+           risk.table = F, # Add risk table
+           risk.table.col = "strata", # Change risk table color by groups
+           linetype = 1, # Change line type by groups
+           palette=c("black","red"),
+           surv.median.line = "hv",
+           legend.title="Infection Status",
+           legend.labs=c("Not Infected","Infected"),
+           xlab="Time (days)",
+           ylab="")
+BsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment+value, data=FST),
+                   pval = TRUE, conf.int = TRUE,
+                   risk.table = F, # Add risk table
+                   risk.table.col = "strata", # Change risk table color by groups
+                   linetype = 1, # Change line type by groups
+                   palette=c("darkgrey","red"),
+                   surv.median.line = "hv",
+                   legend.title="Fish Status",
+                   legend.labs=c("Control, Not Infected","Control,Infected",
+                                 "Mussel, Not Infected","Mussel, Infected"),
+                   xlab="",
+                   legend=c(2,3))
+library(cowplot)
+plot_grid(TsurvP$plot, IsurvP$plot, labels = "AUTO")
+
+modelplotLIST<-list(NHyp=survfit(M0, data=FST),
+                    M8fit=survfit(M8, data=FST),
+                    M5fit=survfit(M5, data=FST))
+ggsurvplot_combine(modelplotLIST, FST)
+
+g2 <- ggplotGrob(TsurvP)
+g3 <- ggplotGrob(IsurvP)
+min_ncol <- min(ncol(g2), ncol(g3))
+g <- gridExtra::rbind.gtable(g2[, 1:min_ncol], g3[, 1:min_ncol], size="last")
+g$widths <- grid::unit.pmax(g2$widths, g3$widths)
+grid::grid.newpage()
+grid::grid.draw(g)
+
+
 
 R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
 summary(R1)
@@ -232,6 +285,8 @@ R3<-coxph(Surv(timeNumA, status)~Treatment+Cum.30over+Est.I.bm, data=FSTreduced)
 summary(R3)
 R4<-coxph(Surv(timeNumA, status)~Cum.30over+Est.I.bm, data=FSTreduced)
 summary(R4)
+R5<-coxph(Surv(timeNumA, status)~Count.30over, data=FSTreduced)
+summary(R5)
 R0<-coxph(Surv(timeNumA, status)~1, data=FSTreduced)
 summary(R0)
 
@@ -249,7 +304,9 @@ TempLL<-tibble(model=c("R1","R2","R3","R4")) %>%  group_by(model)%>%
          conc=round(summary(get(model))$concordance[1],2),
          logp.val=round(summary(get(model))$logtest[3],6))
 
-TempModelTable<-full_join(TempR, TempLL, by="model") %>% arrange(deltaBIC)
+TempModelTable<-full_join(TempR, TempLL, by="model") %>% arrange(deltaBIC) %>%
+  select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
 mt<-rbind(modelTableM,TempModelTable)
-
 write.csv(mt, "modeltable1.csv")
+
+survdiff(Surv(timeNumA, status)~Treatment, data=FST)

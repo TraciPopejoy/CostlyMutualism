@@ -11,6 +11,9 @@ MetC<-Met %>% mutate(NEPtime=Stime-Ftime,
                      ERhr=(FoDO-TDO)/as.numeric(NEPtime)/discA,
                      GPPhr=NEPhr+abs(ERhr),
                      Date=date(Stime))
+library(tidyverse)
+MetDO<- Met %>% left_join(treat, by="Tank") %>%
+  mutate(Date=as.Date(Ftime))
 
 Metstats<-MetC %>% group_by(Tank, Date) %>% summarize(meanNEP=mean(NEPhr),
                                                 meanER=mean(ERhr),

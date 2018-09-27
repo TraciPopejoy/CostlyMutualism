@@ -56,17 +56,48 @@ InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
          TotalBM=Count*BM)
 
 InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>% 
-    summarize(TotalBiomass=sum(TotalBM, na.omit=T),
+    summarize(TotalBiomass=sum(TotalBM, na.omit=T)/1000,
               Richness=length(unique(Taxa)),
               Count=sum(Count, na.omit=T),
-              BMDensity=TotalBiomass/(3*.03315))
+              BMDensity=TotalBiomass/(3*.0103),
+              CountDensity=Count/(3*.0103),
+              AvgLength=mean(Length.mm, na.rm=T)) %>%
+  mutate(Avg.BM=TotalBiomass/AvgLength)
 
 ggplot(InvBMSum, aes(x=Week, y=TotalBiomass, fill=NewTreat))+
   geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
 
-ggplot(InvBMSum[InvBMSum$Week==1 |
-                InvBMSum$Week==2, ], aes(x=Week, y=TotalBiomass, fill=Treatment))+
-  geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
+TinvBMplot<-ggplot(InvBMSum[InvBMSum$Week==1 |
+                InvBMSum$Week==2, ], 
+       aes(x=Week, y=BMDensity, fill=Treatment))+
+  geom_boxplot()+
+  scale_fill_jco(name="Tank Treatment")+
+  ylab(expression("Invertebrate Biomass g"%*%m^-2))+
+  xlab("Time")+
+  scale_x_discrete(labels=c("start","finish"))+
+  theme(legend.justification=c(1,1),legend.position = c(.75,1))
+TinvCount<-ggplot(InvBMSum[InvBMSum$Week==1 |
+                              InvBMSum$Week==2,], 
+                   aes(x=Week, y=CountDensity, fill=Treatment))+
+  geom_boxplot()+scale_fill_jco(guide=F)+
+  ylab(expression("Invertebrates m"^-2))+xlab("Time")+
+  scale_x_discrete(labels=c("start","finish"))
+slopessss<-InvBMslope %>% left_join(treat)
+InvSlopplot<-ggplot(slopessss, 
+                  aes(x=Treatment, y=InvBMrate, color=Treatment))+
+  geom_point(size=3, position="jitter")+scale_color_jco(guide=F)+
+  labs(y="delta ( Invertebrate Biomass )")+
+  geom_hline(yintercept=0, lty=2)  
+plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = "AUTO")
+
+fishinv<-lm(Count~Treatment+Week, data=InvBMSum[InvBMSum$Week==1 |
+                                           InvBMSum$Week==2, ])
+summary(fishinv)
+anova(fishinv)
+
+library(lsmeans)
+leastm<-lsmeans(fishinv, "Week", adjust="tukey")
+cld(leastm, alpha=.05, Letters=letters)
 
 BiomGraph<-InvBMSum %>% 
   filter(Week==1 | Week==2) %>% 
@@ -123,4 +154,8 @@ WCcom<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep=".")) %>%
                                           DipteraAdult=0,
                                           Dytiscidae=0,
                                           Oligocheata=0))
-
+##### citations
+View(semi_join(BiomassReg,InvBioMass[,8:10], by="Family"))
+semi_join(BiomassReg,InvBioMass[,8:10], by="Family")[,c("Primary Source","Secondary Source")] %>%
+  filter(is.na(`Secondary Source`)) %>% group_by(`Primary Source`) %>% tally()
+#plus Benke et al 1999
