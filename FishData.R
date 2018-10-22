@@ -97,12 +97,10 @@ ggplot(DeadPerDayTreat, aes(x=Died, y=n, fill=Infected))+
 ### CumDeath is the tank, type of fish, and treatment type and 
 ### the number of cumualtive dead fish per day
 CumDeath<-FishData  %>% 
-  filter(is.na(alive)) %>%
-  group_by(Treatment,Tank, Infected, DiedALT) %>% 
+  group_by(Treatment,Tank, DiedALT) %>% 
   filter(DiedALT > "2018-06-19") %>% summarise(nDied=n()) %>% 
   mutate(cumDeath=cumsum(nDied),
-         Alive=5-cumDeath,
-         TreatType=paste(Treatment,Infected))
+         Alive=10-cumDeath)
 #line graph of number of dead fish in a treatment and infection type
 ggplot(CumDeathTEST, aes(x=DiedALT, y=cumDeath))+
   geom_smooth(aes(color=Infected), method="lm")+geom_point(position="jitter")+
@@ -310,3 +308,50 @@ mt<-rbind(modelTableM,TempModelTable)
 write.csv(mt, "modeltable1.csv")
 
 survdiff(Surv(timeNumA, status)~Treatment, data=FST)
+
+##### covariate table #####
+head(physchem)
+head(bigComdata)
+head(ChlSummary)
+head(InvBMSum)
+
+covtab<-physchem %>% filter(Week==1 | Week==2) %>%
+  mutate(wkc=as.character(Week)) %>% left_join(ChlSummary) %>%
+  left_join(InvBMSum, by=c("wkc"="Week","Tank","Treatment","NewTreat"))%>% left_join(bigComdata) %>%
+  select(Treatment, Week, Tank,Temp.C, Cond.uS, DO.mgL, WaterV.mLs, WaterColChlA.ug.mL, 
+         BenthicChlA.ug.cm,BMDensity,CountDensity,Richness,AvgLength.mm,
+         musselBMDen,FAvgLength.mm, FishBMDen) %>% group_by(Treatment, Week)%>%
+  mutate(WaterColChlA.ug.L = WaterColChlA.ug.mL*1000) %>% select(-WaterColChlA.ug.mL) %>%
+  summarize_if(is.numeric, funs(median, IQR), na.rm=T) 
+###q week 1 doesn't have treatment
+write.csv(covtab, "fishcovariate.csv")
+
+covtabFull<-physchem %>% filter(Week==1 | Week==2) %>% left_join(ChlSummary) %>% left_join(bigComdata) %>%
+  select(Treatment, Week, Tank,Temp.C, Cond.uS, DO.mgL, WaterV.mLs, WaterColChlA.ug.cm, BenthicChlA.ug.cm, AvgLength.mm,
+         musselBMDen,FAvgLength.mm, FishBMDen)
+friedman.test(y~A|B)
+summary(aov(lm(Temp.C~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(Cond.uS~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(DO.mgL~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(WaterV.mLs~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(WaterColChlA.ug.L~Treatment+(1|Week), data=covtabFull))) #significant
+summary(aov(lm(BenthicChlA.ug.cm~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(FAvgLength.mm~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(FishBMDen~Treatment+(1|Week), data=covtabFull)))
+summary(aov(lm(BMDensity~Treatment+(1|Week), data=covtabFull)))
+
+library(ggsci)
+benthic<-ggplot(covtabFull, aes(x=as.character(Week), y=BenthicChlA.ug.cm, fill=Treatment))+
+  geom_boxplot()+
+  scale_fill_jco(name="Tank Treatment")+
+  ylab(expression("Benthic Chlorophyl a ug "%*%cm^-2))+
+  xlab("Time")+
+  scale_x_discrete(labels=c("start","finish"))+
+  theme(legend.justification=c(1,1),legend.position = c(.45,1))
+wcchl<-ggplot(covtabFull, aes(x=as.character(Week), y=WaterColChlA.ug.L, fill=Treatment))+
+  geom_boxplot()+
+  scale_fill_jco(guid=F)+
+  ylab(expression("Water Column Chlorophyl a ug "%*%L^-1))+
+  xlab("Time")+
+  scale_x_discrete(labels=c("start","finish"))
+plot_grid(benthic, wcchl, labels = "AUTO")

@@ -52,28 +52,39 @@ ggplot(mDW, aes(x=Date, y=Weight, group=Mussel))+
 OrigWeights<-mDW %>% group_by(Mussel) %>% filter(Date==min(Date))
 names(OrigWeights)[4]="origW"
 
+#k=(1/time)[ln(massfinal/massinitial)]
 WCdata <- mDW %>% group_by(Mussel) %>% full_join(select(OrigWeights, -Date)) %>% 
   mutate(lastW=lag(Weight, 1),
          perOrig=round((Weight/origW)*100,1),
          perLost=round(((lastW-Weight)/origW)*100,1),
          daysSince=(Date-ymd_hms("2018-07-02 15:00:00")-5)/24,
          lostWeight=origW-Weight,
-         dailLost=lastW-Weight)
+         dailLost=lastW-Weight,
+         kstep=(1/as.numeric(daysSince))*(log(Weight/origW)),
+         Date.day=as.Date(Date))
+decayrate<-WCdata %>% filter(Date<ymd_hms("2018-08-10 00:00:00") &
+                             Date>ymd_hms("2018-07-26 00:00:00")) %>%
+  mutate(kdecay=(1/as.numeric(daysSince))*(log(Weight/origW))) %>%
+  select(-lastW, perLost)
+decayrate %>% group_by(Tank) %>% summarize(meanK=mean(kdecay, na.rm=T),
+                                           meanperOrig=mean(perOrig, na.rm=T),
+                                           meanperLost=100-meanperOrig)
+regwc<-WCdata %>% group_by(Tank, Date.day) %>%
+  summarize(meanKstep=mean(kstep, na.rm=T)) %>% 
+  inner_join(physchem, by=c("Tank", "Date.day"="Date")) %>% ungroup() %>%
+  mutate(TankF=factor(Tank))
 
-ggplot(WCdata[WCdata$Date< ymd("2018-07-28"),], 
-       aes(x=Date, y=perOrig))+
+decaymodel<-lme(meanKstep~Temp.C+Cond.uS+DO.mgL, random = ~1|Tank/Date.day, data=regwc)
+decaynull<-lme(meanKstep~1, random=~1|Tank/Date.day, data=regwc)
+anova(decaynull,decaymodel)
+## NOT A BETTER MODEL THAN NULL
+
+ggplot(WCdata, aes(x=Date, y=perOrig))+
   ylab("percent original weight")+
   geom_line(aes(group=Mussel), alpha=.2)+
-  geom_smooth(size=2)+theme_bw()
+  geom_smooth(size=2)+theme_bw()+
+  geom_vline(xintercept=ymd_hms("2018-07-11 00:00:00"))
+interval(ymd("2018-07-02"), ymd("2018-07-11")) %/% days()
   
 ggplot(WCdata, aes(x=Date, y=perLost, group=Mussel))+
     ylab("percent lost daily")+geom_point()
-
-### regressions
-summary(lm(dailLost~daysSince, 
-           data=WCdata[WCdata$Date<ymd_hms("2018-08-01 12:00:00"),]))
-summary(lm(perOrig~daysSince, 
-           data=WCdata[WCdata$Date<ymd_hms("2018-08-01 12:00:00"),]))
-
-ggplot(WCdata, aes(x=daysSince, y=perOrig))+geom_point()+
-  geom_smooth(method="lm")

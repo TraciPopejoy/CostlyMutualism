@@ -57,7 +57,16 @@ airTemp$TimeCST<-airTemp$time-18000
 
 library(readxl)
 physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
+physchem[,"Date"]<-as.Date(physchem$Time)
 head(physchem)
+physchem %>% filter(Week==1 | Week==2) %>% group_by(Week) %>% summarize(mean(DO.mgL))
+DOdiff<-physchem %>% mutate(DOdif=case_when(Week==1 ~ DO.mgL-7.42,
+                                            Week==2 ~ DO.mgL-9.87)) %>%
+  left_join(treat) %>%  select(Week, Tank, Time, DO.mgL, Treatment, DOdif) %>%
+  filter(Week==1 | Week==2)
+ggplot(DOdiff, aes(x=Treatment, y=DOdif, color=Treatment))+
+  geom_point()+geom_hline(yintercept = 0)+facet_wrap(~Week)
+summary(Anova(lm(DOdif~Treatment*Week, DOdiff)))
 
 histTemp<-read_excel("./data/CostMutData.xlsx",sheet = "HistWeath") #accuweather
 histTemp$TempC<-(histTemp$HistTemps-32)*.5556
@@ -78,6 +87,8 @@ ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 #### covariate table ####
 head(physchem)
+
+
 physchem$Week<-as.factor(physchem$Week)
 pcgraph<-physchem %>% left_join(treat) %>% mutate(WaterV.cfs=WaterV.mLs*3.53147e-5)
 ggplot(pcgraph, aes(x=Date, y=WaterV.cfs, color=Treatment))+
@@ -116,7 +127,8 @@ View(nwisQW %>% mutate(Month=months(sample_dt),
   filter(Month=="June" | Month=="July" | Month=="August") %>%
   group_by(site_no, Year) %>%
   summarize(count=n(),
-            avgT=mean(result_va, na.omit=T)))
+            avgT=mean(result_va, na.omit=T),
+            maxT=max(result_va, na.omit=T)))
 
                     
 

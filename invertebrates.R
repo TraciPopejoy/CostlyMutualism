@@ -62,11 +62,26 @@ InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>%
               BMDensity=TotalBiomass/(3*.0103),
               CountDensity=Count/(3*.0103),
               AvgLength=mean(Length.mm, na.rm=T)) %>%
-  mutate(Avg.BM=TotalBiomass/AvgLength)
+  mutate(Avg.BM=TotalBiomass/AvgLength,
+         Week.n=as.numeric(Week))
 
 ggplot(InvBMSum, aes(x=Week, y=TotalBiomass, fill=NewTreat))+
   geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
 
+invgraph<-InvBMSum %>% left_join(physchem, by=c("Week.n"="Week","Tank")) %>%
+  filter(Week.n>.5) %>%
+  select(-Temp.C, -Cond.uS, -DO.mgL, -WaterV.mLs, -Chl1, -Chl2)
+
+library(lubridate)
+Invplot<-ggplot(invgraph, aes(x=Date,y=BMDensity, 
+                     fill=NewTreat, group=interaction(Date,NewTreat)))+
+  geom_boxplot()+geom_vline(xintercept=ymd("2018-07-02"))+
+  ylab(expression("Invertebrate Biomass mg "%*%m^-2)) +
+  scale_fill_grey(start=0.3, end=0.9, name="Treatment")+fronteirstheme
+ggsave("Fig4.tiff",Invplot, width=3.34, height=3.34, dpi=300)
+
+
+###FISH
 TinvBMplot<-ggplot(InvBMSum[InvBMSum$Week==1 |
                 InvBMSum$Week==2, ], 
        aes(x=Week, y=BMDensity, fill=Treatment))+
@@ -109,7 +124,8 @@ ggplot(BiomGraph[BiomGraph$variable="TotalBiomass",],
   geom_boxplot()+facet_wrap(~variable, scale="free")+fishTheme
 
 ggplot(BiomGraph, aes(x=Week, y=value, color=NewTreat))+
-  geom_point(position=position_dodge(width=.4))+facet_wrap(~variable, scale="free")+theme_bw()
+  geom_point(position=position_dodge(width=.4))+
+  facet_wrap(~variable, scale="free")+theme_bw()
   fishTheme
 
 fishinv<-lm(TotalBiomass~Treatment, data=InvBMSum)
