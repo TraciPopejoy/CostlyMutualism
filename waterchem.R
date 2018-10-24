@@ -81,24 +81,33 @@ ggplot(WNmelted[is.na(WNmelted$VarType),],
 fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       axis.title.x=element_text(size=rel(.6)),
                       axis.text.y=element_text(size=rel(.6)),
-                      axis.text.x=element_text(size=rel(.6)),
+                      axis.text.x=element_text(size=rel(.5)),
                       legend.direction = "vertical", legend.position =c(0,.74),
-                      legend.text = element_text(size=rel(.55)),
-                      legend.title= element_text(size=rel(.6)))
+                      legend.text = element_text(size=rel(.5)),
+                      legend.title= element_text(size=rel(.5)))
 
 nh3filt<-ggplot(WaterNutrients, 
        aes(x=Date, y=FilterdNH3ugL, color=NewTreat)) + 
   #geom_line(aes(group=NewTreat), alpha=.5) + 
   geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
+  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
+               labels = c('day -20', 'day -15', 'day -3','day 4', 
+                          'day 11', 'day 17', 'day 25', 'day 39'),
+               name="")+
   scale_color_grey(start=0, end=.9,name="Treatment")+
   scale_fill_grey(start=0, end=0.9, guide=F)+
   stat_summary(aes(fill=NewTreat))+
   geom_vline(xintercept = ymd("2018-07-02"), size=2)+
   ylab(expression("Filtered NH "[3]*" ug "%*%L^-1))+xlab("")+
-  fronteirstheme
+  fronteirstheme+theme(legend.background = element_rect(fill=NA),
+                       legend.position = c(0, .746))
 nh3un<-ggplot(WaterNutrients, 
                 aes(x=Date, y=UnFiltNH3ugL, color=NewTreat)) + 
   geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
+  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
+               labels = c('day -20', 'day -15', 'day -3','day 4', 
+                          'day 11', 'day 17', 'day 25', 'day 39'),
+               name="")+
   scale_color_grey(start=0, end=.9, guide=F)+
   scale_fill_grey(start=0, end=0.9, guide=F)+
   stat_summary(aes(color=NewTreat))+
@@ -107,6 +116,10 @@ nh3un<-ggplot(WaterNutrients,
 srpfil<-ggplot(WaterNutrients,
                 aes(x=Date, y=FilterdSRPugL, color=NewTreat)) + 
   geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
+  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
+               labels = c('day -20', 'day -15', 'day -3','day 4', 
+                          'day 11', 'day 17', 'day 25', 'day 39'),
+               name="")+
   scale_color_grey(start=0, end=.9, guide=F)+
   scale_fill_grey(start=0, end=0.9,guide=F)+
   stat_summary(aes(color=NewTreat))+
@@ -115,6 +128,12 @@ srpfil<-ggplot(WaterNutrients,
 srpun<-ggplot(WaterNutrients,
                 aes(x=Date, y=UnFiltSRPugL, color=NewTreat)) + 
   geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
+  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
+               labels = c('day -20\nJune 12', 'day -15\nJune 17',
+                          'day -3\nJune 29',
+                          'day 4\nJuly 06', 'day 11\nJuly 13', 
+                          'day 17\nJuly20',
+                          'day 25\nJuly 27', 'day 39\nAug 10'))+
   scale_color_grey(start=0, end=.9, guide=F)+
   scale_fill_grey(start=0, end=0.9, guide=F)+
   stat_summary(aes(color=NewTreat))+
