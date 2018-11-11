@@ -59,6 +59,7 @@ library(readxl)
 physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
 physchem[,"Date"]<-as.Date(physchem$Time)
 head(physchem)
+physchem %>% filter(Week!=5) %>% summarize(mean(hms(Time)))
 physchem %>% filter(Week==1 | Week==2) %>% group_by(Week) %>% summarize(mean(DO.mgL))
 DOdiff<-physchem %>% mutate(DOdif=case_when(Week==1 ~ DO.mgL-7.42,
                                             Week==2 ~ DO.mgL-9.87)) %>%

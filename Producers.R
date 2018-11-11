@@ -73,13 +73,11 @@ ER<-ggplot(Metgraph[Metgraph$variable=="meanER",],
   scale_x_date(breaks = unique(Metgraph$Date), labels = date_format("%b-%d"))+
   theme(axis.text.x=element_text(angle = 30, hjust=.7))
 GPP<-ggplot(Metstats, 
-            aes(x=Date,y=meanGPP, fill=NewTreat, group=interaction(Date,NewTreat)))+
+            aes(x=Day,y=meanGPP, fill=NewTreat, group=interaction(Day,NewTreat)))+
   geom_boxplot()+
   ylab(expression("Gross DO Production ug "%*%L^-1)) +
-  scale_fill_grey(start=0.3, end=.9, name="Treatment")+ 
-  scale_x_date(breaks = unique(Metstats$Date), 
-               labels = c('day 4\nJuly 06', 'day 11\nJuly 13', 
-                          'day 25\nJuly 27', 'day 39\nAug 10'))+
+  scale_fill_grey(start=0.4, end=.8, name="Treatment")+ 
+  scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+
   fronteirstheme+
   theme(axis.title.y=element_text(size=rel(.7)),
         axis.title.x=element_text(size=rel(.7)),
@@ -134,34 +132,26 @@ ChlSummary<-ChlSummary %>% select(-Compartment.x, -Compartment.y) %>%
 ChlSummary[ChlSummary$Tank=="Q" & ChlSummary$Date==ymd("2018-06-17"),5:6]<-"Control"
 
 wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,], 
-              aes(x=Date, y=WaterColChlA.ug.L, fill=NewTreat))+
-  geom_boxplot(aes(group=interaction(Date,NewTreat))) +
-  geom_vline(xintercept=ymd("2018-07-02"))+
-  scale_fill_grey(start=0.3, end=.9, name="Treatment")+
+              aes(x=Day, y=WaterColChlA.ug.L, fill=NewTreat))+
+  geom_boxplot(aes(group=interaction(Day,NewTreat))) +
+  geom_vline(xintercept=0, linetype="dashed")+
+  scale_fill_grey(start=0.4, end=.8, name="Treatment")+
   scale_y_continuous(trans="log10", breaks=c(1,3,10,30,100,1000))+
-  scale_x_date(breaks = unique(ChlSummary$Date), 
-               labels = c('day -20\nJune 12', 'day -15\nJune 17',
-                          'day -3\nJune 29',
-                          'day 4\nJuly 06', 'day 11\nJuly 13', 
-                          'day 25\nJuly 27', 'day 39\nAug 10'),
-               name="")+
+  scale_x_continuous(breaks = unique(ChlSummary$Day), name="")+
   ylab(expression(atop("Water Column Chl. a", paste("ug "%*%L^-1))))+
   fronteirstheme+
-  theme(legend.direction="horizontal",legend.position = c(0,1))
+  theme(legend.direction="horizontal",legend.position = c(0,1),
+        axis.title.x = element_text(size=rel(0)))
 benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,], 
-               aes(x=Date, y=BenthicChlA.ug.cm, fill=NewTreat))+
-  geom_boxplot(aes(group=interaction(Date,NewTreat))) +
-  geom_vline(xintercept=ymd("2018-07-02")) +
-  scale_fill_grey(start=0.3, end=.9,guide=F)+
-  scale_x_date(breaks = unique(ChlSummary$Date), 
-               labels = c('day -20\nJune 12', 'day -15\nJune 17',
-                          'day -3\nJune 29',
-                          'day 4\nJuly 06', 'day 11\nJuly 13', 
-                          'day 25\nJuly 27', 'day 39\nAug 10'))+
+               aes(x=Day, y=BenthicChlA.ug.cm, fill=NewTreat))+
+  geom_boxplot(aes(group=interaction(Day,NewTreat))) +
+  geom_vline(xintercept=0, linetype="dashed") +
+  scale_fill_grey(start=0.4, end=.8,guide=F)+
+  scale_x_continuous(breaks = unique(ChlSummary$Day), name="Sampling Days")+
   ylab(expression(atop("Benthic Chlorophyll a", paste("ug "%*%cm^-2))))+
   fronteirstheme
-chlplot<-plot_grid(wcchl,benchl, ncol=1, labels="", rel_heights = c(1.1,1))
-ggsave("Fig3.tiff",chlplot, width=6, height=3.34, dpi=300)
+chlplot<-plot_grid(wcchl,benchl, ncol=1, labels="")
+ggsave("Fig3.tiff",chlplot, width=7, height=3.34, dpi=300)
 
 library(car);library(lme4);library(lmerTest)
 #watercolumn
@@ -224,27 +214,25 @@ AFDMfil<-AFDMraw %>% inner_join(KeyFil, by=c("Filter"="WCFilter1")) %>%
   select(-nLiveMussels, -Excretion, -InfectionRound, -Notes) %>%
   mutate(Day=as.numeric(Date-ymd("2018-07-02")))
 
-afdmplot<-ggplot(AFDMfil, aes(x=Date, y=meanOrgM.gl, fill=NewTreat))+
-  geom_boxplot(aes(group=interaction(Date, NewTreat)))+
-  scale_fill_grey(start=.3, end=0.9, name="Treatment")+
+afdmplot<-ggplot(AFDMfil, aes(x=Day, y=meanOrgM.gl, fill=NewTreat))+
+  geom_boxplot(aes(group=interaction(Day, NewTreat)))+
+  scale_fill_grey(start=.4, end=0.8, name="Treatment")+
   ylab(expression("Organic Matter g "%*%L^-1))+
-  geom_vline(xintercept=ymd("2018-07-02"))+
+  geom_vline(xintercept=0, linetype="dashed")+
   scale_y_log10(breaks=c(0,.1,.25,.5,1))+
-  scale_x_date(breaks=sort(unique(AFDMfil$Date)),
-               labels = c('day -20\nJune 12', 'day -15\nJune 17', 'day -3\nJune 29', 
-                          'day 4\nJuly 06', 'day 11\nJuly 13', 'day 25\nJuly 27', 'day 39\nAug 10'))+
+  scale_x_continuous(breaks=sort(unique(AFDMfil$Day)), name="Sampling Day")+
   fronteirstheme+
   theme(axis.title.y=element_text(size=rel(.5)),axis.text.y=element_text(size=rel(.5)),
         axis.text.x=element_text(hjust=.75, size=rel(.45)))
 afdmplot
-ggsave("Fig5.tiff", afdmplot, width = 3.34, height=2.25)
+ggsave("Fig4.tiff", afdmplot, width = 6, height=2.75)
 
 hist(AFDMfil$meanOrgM.gl)
 hist(log10(AFDMfil$meanOrgM.gl))
 AFDMfil <- AFDMfil %>% mutate(log10Org=log10(meanOrgM.gl))
 
-afdm0<-lmer(log10Org~Day + (1|Tank), data=AFDMfil, REML=F)
-afdm1<-lmer(log10Org~NewTreat + Day + (1|Tank), data=AFDMfil, REML=F)
+afdm0<-glmer(meanOrgM.gl~as.factor(Day) + (1|Tank), data=AFDMfil, family=poisson)
+afdm1<-glmer(meanOrgM.gl~NewTreat + Day + (1|Tank), data=AFDMfil, family=Gamma)
 anova(afdm0,afdm1) #treatment DOES NOT improves the fit, model is not better than random
 anova(afdm1)
 summary(afdm1)
@@ -254,3 +242,48 @@ ranova(afdm1)
 hist(residuals(afdm1),col="darkgrey") #very not normal
 plot(fitted(afdm1), residuals(afdm1))  #heteroskodastic
 qqnorm(resid(afdm1))
+
+##### Decomposers - cotton strips #####
+cotton<-read_excel("./data/Traci_Popejoy_tensile_data_2018.xlsx")
+
+decomp<-cotton %>% left_join(treat) %>% 
+  select(Tank, NewTreat, Day.decomp, Day.postMM, Tensile.lbs) %>%
+  mutate(og.lost=mean(as.matrix(cotton[cotton$Tank=="CTRL",7])) - Tensile.lbs,
+         per.ratio=Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
+         lost.str=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
+         lost.str.p=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100,
+         per.lost=(1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100)/Day.decomp)
+         
+ggplot(decomp[decomp$Tank!="CTRL",], aes(x=Day.postMM, y=per.lost, fill=NewTreat)) +
+  geom_boxplot(aes(group=interaction(NewTreat, Day.postMM)))+\
+  scale_x_continuous(breaks=c(18,28,38), name="Sampling Day")
+
+ggplot(decomp[decomp$Tank!="CTRL",], aes(x=Day.postMM, y=Tensile.lbs, fill=NewTreat))+
+  geom_line(aes(group=Tank))+geom_smooth(aes(color=NewTreat), fill="lightgrey")
+
+cottonplt<-ggplot(decomp[!is.na(decomp$NewTreat),], aes(x=Day.decomp, y=Tensile.lbs, fill=NewTreat)) +
+  geom_boxplot(aes(group=interaction(NewTreat, Day.decomp)))+
+  scale_x_continuous(breaks=c(0,11,21,32), labels=c("initial",18,28,38),name="Sampling Day")+
+  scale_y_continuous(limits=c(0,70), name="Tensile Strength (lbs)")+
+  scale_fill_grey(start=0.4, end=.8, name="Treatment", labels=c("Control", "Dead","Live"))+
+  fronteirstheme+
+  theme(legend.position = c(.25,.98), legend.direction = "horizontal")
+ggsave("Fig5.tiff", cottonplt,width=3.34, height=3, dpi=300)
+mean(as.matrix(decomp[is.na(decomp$NewTreat),5]), na.rm=T)
+sd(as.matrix(decomp[is.na(decomp$NewTreat),5]), na.rm=T)
+
+dc0<-lmer(og.lost~Day.decomp + (1|Tank), data=decomp[decomp$Tank!="CTRL",], REML=F)
+dc1<-lmer(og.lost~NewTreat + Day.decomp + (1|Tank), 
+          data=decomp[decomp$Tank!="CTRL",], REML=F)
+anova(dc1)
+summary(dc1)
+ranova(dc1)
+anova(dc0,dc1)
+
+##### assumptions
+hist(residuals(dc1),col="darkgrey") #skewed
+plot(fitted(dc1), residuals(dc1)) 
+
+library(emmeans)
+dc1st<-emmeans(dc1, pairwise~NewTreat, adjust="tukey")
+CLD(dc1st, alpha=.05, Letters=letters, adjust="tukey")

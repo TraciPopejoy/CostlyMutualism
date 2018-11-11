@@ -86,58 +86,51 @@ fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       legend.text = element_text(size=rel(.5)),
                       legend.title= element_text(size=rel(.5)))
 
-nh3filt<-ggplot(WaterNutrients, 
-       aes(x=Date, y=FilterdNH3ugL, color=NewTreat)) + 
-  #geom_line(aes(group=NewTreat), alpha=.5) + 
-  geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
-  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
-               labels = c('day -20', 'day -15', 'day -3','day 4', 
-                          'day 11', 'day 17', 'day 25', 'day 39'),
-               name="")+
-  scale_color_grey(start=0, end=.9,name="Treatment")+
-  scale_fill_grey(start=0, end=0.9, guide=F)+
-  stat_summary(aes(fill=NewTreat))+
-  geom_vline(xintercept = ymd("2018-07-02"), size=2)+
-  ylab(expression("Filtered NH "[3]*" ug "%*%L^-1))+xlab("")+
+nh3filt<-ggplot(WaterNutrients,
+                aes(x=Day, y=FilterdNH3ugL, color=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line")+
+  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="")+
+  scale_color_grey(start=0.4, end=.8, name="Treatment")+
+  scale_fill_grey(start=0.4, end=.8, 
+                  guide=guide_legend(override.aes=list(shape=c(23,22,21))), name="Treatment")+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1))+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept = 0, linetype="dashed") +
+  ylab(expression("Filtered NH "[3]*" ug "%*%L^-1))+
   fronteirstheme+theme(legend.background = element_rect(fill=NA),
-                       legend.position = c(0, .746))
-nh3un<-ggplot(WaterNutrients, 
-                aes(x=Date, y=UnFiltNH3ugL, color=NewTreat)) + 
-  geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
-  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
-               labels = c('day -20', 'day -15', 'day -3','day 4', 
-                          'day 11', 'day 17', 'day 25', 'day 39'),
-               name="")+
-  scale_color_grey(start=0, end=.9, guide=F)+
-  scale_fill_grey(start=0, end=0.9, guide=F)+
-  stat_summary(aes(color=NewTreat))+
-  geom_vline(xintercept = ymd("2018-07-02"), size=2)+
-  ylab(expression("Total NH "[3]*" ug "%*%L^-1))+xlab("")+fronteirstheme
+                       legend.position = c(0, .746),
+                       axis.title.x=element_text(size=rel(0)))
+nh3un<-ggplot(WaterNutrients,
+               aes(x=Day, y=UnFiltNH3ugL, color=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line")+
+  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="")+
+  scale_color_grey(start=0.4, end=.8, guide=F)+
+  scale_fill_grey(start=0.4, end=.8, guide=F)+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1))+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept = 0, linetype="dashed") +
+  ylab(expression("Total NH "[3]*" ug "%*%L^-1))+fronteirstheme+
+  theme(axis.title.x=element_text(size=rel(0)))
 srpfil<-ggplot(WaterNutrients,
-                aes(x=Date, y=FilterdSRPugL, color=NewTreat)) + 
-  geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
-  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
-               labels = c('day -20', 'day -15', 'day -3','day 4', 
-                          'day 11', 'day 17', 'day 25', 'day 39'),
-               name="")+
-  scale_color_grey(start=0, end=.9, guide=F)+
-  scale_fill_grey(start=0, end=0.9,guide=F)+
-  stat_summary(aes(color=NewTreat))+
-  geom_vline(xintercept = ymd("2018-07-02"), size=2)+
-  ylab(expression("Filtered SRP ug "%*%L^-1))+xlab("")+fronteirstheme
+               aes(x=Day, y=FilterdSRPugL, color=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line")+
+  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)),name="")+
+  scale_color_grey(start=0.4, end=.8, guide=F)+
+  scale_fill_grey(start=0.4, end=.8,guide=F)+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1))+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept = 0, linetype="dashed") +
+  ylab(expression("Filtered SRP ug "%*%L^-1))+fronteirstheme+
+  theme(axis.title.x=element_text(size=rel(0)))
 srpun<-ggplot(WaterNutrients,
-                aes(x=Date, y=UnFiltSRPugL, color=NewTreat)) + 
-  geom_smooth(aes(group=NewTreat, fill=NewTreat), span=.6, level=.95)+
-  scale_x_date(breaks = sort(unique(WaterNutrients$Date)), 
-               labels = c('day -20\nJune 12', 'day -15\nJune 17',
-                          'day -3\nJune 29',
-                          'day 4\nJuly 06', 'day 11\nJuly 13', 
-                          'day 17\nJuly20',
-                          'day 25\nJuly 27', 'day 39\nAug 10'))+
-  scale_color_grey(start=0, end=.9, guide=F)+
-  scale_fill_grey(start=0, end=0.9, guide=F)+
-  stat_summary(aes(color=NewTreat))+
-  geom_vline(xintercept = ymd("2018-07-02"), size=2)+
+                aes(x=Day, y=UnFiltSRPugL, color=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line")+
+  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="Sampling Day")+
+  scale_color_grey(start=0.4, end=.8, guide=F)+
+  scale_fill_grey(start=0.4, end=.8, guide=F)+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1))+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept = 0, linetype="dashed") +
   ylab(expression("Total SRP ug "%*%L^-1))+fronteirstheme
 wnplot<-plot_grid(nh3filt, nh3un, srpfil,srpun, ncol=1,labels = NULL)
 ggsave("Fig1.tiff", wnplot, width=3.34, height=7, dpi=300)

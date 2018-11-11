@@ -64,6 +64,13 @@ InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>%
               AvgLength=mean(Length.mm, na.rm=T)) %>%
   mutate(Avg.BM=TotalBiomass/AvgLength,
          Week.n=as.numeric(Week))
+tempinv<-InvBMSum %>% select(-Treatment, -Avg.BM,-Week.n) %>%
+  mutate(Date=case_when(Week==0~ymd("2018-06-12"),
+                        Week==1~ymd("2018-06-18"),
+                        Week==2~ymd("2018-06-29"),
+                        Week==3~ymd("2018-07-06"),
+                        Week==4~ymd("2018-07-13")))
+write_excel_csv(tempinv, "DeathInvertebrate1025.xls")
 
 ggplot(InvBMSum, aes(x=Week, y=TotalBiomass, fill=NewTreat))+
   geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
