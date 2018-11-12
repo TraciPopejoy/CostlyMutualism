@@ -160,10 +160,19 @@ InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>%
   left_join(InvBMslope) %>% 
   mutate(Est.I.bm=InvBMrate*timeNumA + `1`)
          
-FST<-left_join(FishSurv1, InvBModel) %>% 
+head(comdistance)
+comModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>% 
+  add_column(Tank=rep(sort(unique(FishSurv1$Tank)),10)) %>% arrange(Tank) %>%
+  mutate(timeNumA=interval(ymd("2018-06-18"),ymd(Date)) %/% days()) %>% 
+  left_join(comdistance) %>% 
+  mutate(Est.I.COM=InvComSlope*timeNumA) %>% select(-`1`,-`2`,-`1 n`, -`2 n`)
+
+FST<-left_join(FishSurv1, InvBModel) %>%  
+  left_join(comModel) %>%
   select(-status.char, -alive)
 
-giantmodel<-coxph(Surv(timeNumA, status)~Treatment+value+`1`+Est.I.bm, data=FST)
+library(survival)
+giantmodel<-coxph(Surv(timeNumA, status)~Treatment+value+`1.x`+Est.I.bm, data=FST)
 
 TempModel<- watertempGood %>% filter(Date <= ymd("2018-06-30") &
                                        Date >= ymd("2018-06-18")) %>%
