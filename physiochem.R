@@ -89,7 +89,6 @@ ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 #### covariate table ####
 head(physchem)
 
-
 physchem$Week<-as.factor(physchem$Week)
 pcgraph<-physchem %>% left_join(treat) %>% mutate(WaterV.cfs=WaterV.mLs*3.53147e-5)
 ggplot(pcgraph, aes(x=Date, y=WaterV.cfs, color=Treatment))+
@@ -152,3 +151,49 @@ ggplot()+
   ylab("Temperature degCelcius") + xlab("Date")+
   xlim(ymd_hms("2018-06-12 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+
   theme_bw()
+  
+oxymodel<-physchem %>% left_join(treat) %>%
+  select(Week, Tank, Temp.C, Cond.uS, DO.mgL, WaterV.mLs, Date, NewTreat)
+  
+summodel<-oxymodel %>% mutate(timeseg=case_when(Week==0 | Week==1 | Week==2 ~ "before",
+                           Week==3 | Week==4 | Week==5 | Week==6 | Week==7 | Week==8  ~"after"))%>%
+  group_by(Date) %>%
+  summarize(Temp.C.mean=round(mean(Temp.C, na.rm=T),1),
+            Temp.C.sd=round(sd(Temp.C, na.rm=T),1),
+            Cond.uS.mean=round(mean(Cond.uS, na.rm=T),0),
+            Cond.uS.sd=round(sd(Cond.uS, na.rm=T),0),
+            DO.mgL.mean=round(mean(DO.mgL, na.rm=T),2),
+            DO.mgL.sd=round(sd(DO.mgL, na.rm=T),2), 
+            wvel.mLs.mean=round(mean(WaterV.mLs,na.rm=T),0),
+            wvel.mLs.sd=round(sd(WaterV.mLs,na.rm=T),0))
+summary(lm(DO.mgL~Temp.C, data=oxymodel[oxymodel$Date==ymd("2018-06-17") | oxymodel$Date==ymd("2018-06-29"),]))
+ttt<-watertempGood %>% mutate(modelDO=0.6129*GoodTC-9.155,
+                         timecor=substr(Time,10,20))%>%
+  group_by(Date) %>% 
+  summarize(dailymax=max(modelDO),
+            dailymin=min(modelDO),
+            averagetemp=mean(modelDO), 
+            dailyrange=max(modelDO)-min(modelDO)) %>% left_join(summodel) %>% group_by(DO.mgL.mean) %>%
+  summarise(Date=mean(Date),
+            avgMax=mean(dailymax),
+            avgMin=mean(dailymin),
+            avgDO=mean(averagetemp),
+            avgDORang=mean(dailyrange),
+            MIN=min(dailymin),
+            MAX=max(dailymax),
+            maxRANGE=max(dailyrange)) %>% select(Date, DO.mgL.mean, avgMin, avgDO, MIN, MAX)
+watertempGood %>% mutate(modelDO=0.6129*GoodTC-9.155,
+                         timecor=substr(Time,10,20)) %>% filter(timecor=="12:00:00 PM") %>%
+  filter(Date==ymd("2018-06-17") | Date==ymd("2018-06-29")) %>% 
+  select(Date, timecor, modelDO, GoodTC)
+physchem %>% filter(Tank=="L" | Tank=="D" | Tank=="Q") %>% filter(Week==1)%>% select(Week, DO.mgL, Temp.C)
+tempcor<-physchem %>% mutate(hour=substr(Time,1,13)) %>%
+  select(Week, Tank, Time, Temp.C, DO.mgL, Date, hour)
+tempcor2<-watertempGood %>% mutate(hour=substr(paste(GoodDate),1,13))%>%
+  left_join(tempcor, by=c("Tank","hour")) %>% filter(!is.na(Temp.C.y))
+summary(lm(GoodTC~Temp.C.y, data=tempcor2))
+TempCor<-watertempGood %>% mutate(tempMOD=GoodTC*0.7171+9.3428,
+                                  modelDO=0.6129*tempMOD-9.155,
+                                  timecor=substr(Time,10,20)) %>% filter(timecor=="12:00:00 PM") %>%
+  filter(Date==ymd("2018-06-17") | Date==ymd("2018-06-29")) %>% 
+  select(Date, timecor, modelDO, GoodTC, tempMOD)
