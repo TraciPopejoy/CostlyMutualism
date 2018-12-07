@@ -130,8 +130,6 @@ View(nwisQW %>% mutate(Month=months(sample_dt),
             avgT=mean(result_va, na.omit=T),
             maxT=max(result_va, na.omit=T)))
 
-                    
-
 ### week date table
 unique(physchem$Week)
 WeekDate<-physchem %>% select(Week, Time) %>% group_by(Week) %>%
@@ -147,7 +145,6 @@ ggplot()+
   geom_vline(xintercept=ymd_hms("2018-07-13 12:00:00"), size=3, alpha=.4)+
   geom_vline(xintercept=ymd_hms("2018-07-27 12:00:00"), size=3, alpha=.4)+
   geom_vline(xintercept=ymd_hms("2018-08-10 12:00:00"), size=3, alpha=.4)+
-  geom_text()
   ylab("Temperature degCelcius") + xlab("Date")+
   xlim(ymd_hms("2018-06-12 00:00:00"), ymd_hms("2018-08-10 08:00:00"))+
   theme_bw()
@@ -197,3 +194,22 @@ TempCor<-watertempGood %>% mutate(tempMOD=GoodTC*0.7171+9.3428,
                                   timecor=substr(Time,10,20)) %>% filter(timecor=="12:00:00 PM") %>%
   filter(Date==ymd("2018-06-17") | Date==ymd("2018-06-29")) %>% 
   select(Date, timecor, modelDO, GoodTC, tempMOD)
+
+mesotable<-physchem %>% left_join(treat) %>% group_by(Date, NewTreat) %>%
+  mutate(Day=as.numeric(Date-ymd("2018-07-02"))) %>% 
+  summarize(Day=Day[1],
+            Temp.C.m=mean(Temp.C, na.rm=T), Temp.C.sd=sd(Temp.C, na.rm=T),
+            Cond.uS.m=mean(Cond.uS, na.rm=T),Cond.uS.sd=sd(Cond.uS, na.rm=T),
+            DO.mgL.m=mean(DO.mgL, na.rm=T),DO.mgL.sd=sd(DO.mgL, na.rm=T),
+            WV.mLs.m=mean(WaterV.mLs, na.rm=T),WV.mLs.sd=sd(WaterV.mLs, na.rm=T)) %>%
+  arrange(NewTreat)
+write.csv(mesotable, "physicalchem.csv")
+
+mesotable<-physchem %>% left_join(treat) %>% group_by(Date, NewTreat) %>%
+  mutate(Day=as.numeric(Date-ymd("2018-07-02"))) %>% 
+  summarize(Day=Day[1], mT=mean_se(Temp.C)[[1]],Tse=(mean_se(Temp.C)[[3]]-mean_se(Temp.C)[[2]])/2, 
+            mC=mean_se(Cond.uS)[[1]],Cse=(mean_se(Cond.uS)[[3]]-mean_se(Cond.uS)[[2]])/2, 
+            mDO=mean_se(DO.mgL)[[1]],DOse=(mean_se(DO.mgL)[[3]]-mean_se(DO.mgL)[[2]])/2, 
+            mWV=mean_se(WaterV.mLs)[[1]],WVse=(mean_se(WaterV.mLs)[[3]]-mean_se(WaterV.mLs)[[2]])/2) %>%
+  arrange(NewTreat)
+write.csv(mesotable, "physicalchem.csv")
