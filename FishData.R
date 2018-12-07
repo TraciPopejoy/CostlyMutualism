@@ -1,20 +1,3 @@
-#### Ecology of FW fishes theme #####
-fishTheme<-theme(axis.text.x=element_text(angle = 00,size=12,color="black", hjust=.5),
-                axis.text.y = element_text(size=12,color="black"),
-                axis.title.y=element_text(size=18),
-                plot.background = element_blank(),
-                panel.border=element_blank(),
-                panel.grid.major= element_line(colour=NA), 
-                panel.grid.minor=element_line(colour=NA),
-                title=element_text(size=18),
-                panel.background = element_rect(fill = "white"),
-                legend.key=element_rect(colour=NA), 
-                axis.line.x=element_line(colour="black"),
-                axis.line.y=element_line(colour="black"),
-                strip.background=element_rect(fill="white", color="black"),
-                strip.text=element_text(size=15))
-
-
 library(readxl)
 fish<-read_excel("./data/CostMutData.xlsx", sheet="FishData")
 
