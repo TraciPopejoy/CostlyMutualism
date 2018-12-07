@@ -40,13 +40,13 @@ SRPraw<-phosphorus %>% mutate(PredSRPugL=((x885nm-Pb)/Pa)) %>% filter(Type=="sam
   mutate(Tank=substring(Water.Sample,1,1),
          WaterType=substring(Water.Sample,3,6))
 
-SRPFiltered<-SRPraw %>%
+SRPWaterNuts<-SRPraw %>%
   select(-Type, -Location, -entry.position, -ActualSRP.ug.L) %>%
   mutate(Week=case_when(WaterType=="WCNF"~substring(Water.Sample, 10),
                         WaterType=="WCN "~substring(Water.Sample, 9,9))) %>%
   spread(WaterType, PredSRPugL) %>% select(-x885nm) %>% group_by(Tank, Week) %>%
-  summarize(FilterdNH3ugL=mean(`WCNF`, na.rm=T), 
-            UnFiltNH3ugL=mean(`WCN `, na.rm=T))
+  summarize(FilterdSRPugL=mean(`WCNF`, na.rm=T), 
+            UnFiltSRPugL=mean(`WCN `, na.rm=T))
 head(physchem) #in physiochem.R script
 #physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
 #physchem[,"Date"]<-as.Date(physchem$Time)
