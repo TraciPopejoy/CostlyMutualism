@@ -67,6 +67,7 @@ fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       legend.text = element_text(size=rel(.5)),
                       legend.title= element_text(size=rel(.5)))
 #col6<-c("darkgrey","#5389a6","forestgreen") #col6 in Producers.R
+col6<-c("black","blue3","yellow3") #col6 in Producers.R
 nh3filt<-ggplot(WaterNutrients,
                 aes(x=Day, y=FilterdNH3ugL, color=NewTreat)) + 
   stat_summary(fun.y = mean, geom = "line")+
@@ -77,7 +78,7 @@ nh3filt<-ggplot(WaterNutrients,
   stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
-  ylab(expression("NH"[3]*"-N  ug "%*%L^-1))+
+  ylab(expression("NH"[3]*"-N "*mu*"g "%*%L^-1))+
   fronteirstheme+theme(legend.background = element_rect(fill=NA),
                        legend.position = c(0, .746),
                        axis.title.x=element_text(size=rel(0)))
@@ -91,7 +92,7 @@ srpfil<-ggplot(WaterNutrients,
   stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
-  ylab(expression("SRP ug "%*%L^-1))+fronteirstheme
+  ylab(expression("SRP "*mu*"g "%*%L^-1))+fronteirstheme
 library(cowplot)
 wnplot<-plot_grid(nh3filt, srpfil, ncol=1,labels = NULL)
 ggsave("DeathFigures/Fig2.tiff", wnplot, width=3.34, height=5, dpi=300)

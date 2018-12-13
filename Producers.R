@@ -38,7 +38,7 @@ ggplot(Metgraph, aes(x=variable,y=value, fill=NewTreat))+
 
 ### metabolism statistics
 library(car); library(lme4); library(lmerTest);library(emmeans)
-Met1<-lmer(meanGPP~NewTreat + Day + (1|Tank), data=Metstats, REML=F)
+Met1<-lmer(meanGPP~NewTreat + Day + NewTreat*Day + (1|Tank), data=Metstats, REML=F)
 anova(Met1)
 summary(Met1)
 
@@ -66,7 +66,7 @@ ER<-ggplot(Metgraph[Metgraph$variable=="meanER",],
   scale_x_date(breaks = unique(Metgraph$Date), labels = date_format("%b-%d"))+
   theme(axis.text.x=element_text(angle = 30, hjust=.7))
 
-col6<-c("darkgrey","#5389a6","forestgreen")
+col6<-c("black","blue3","yellow3")
 ### fronteirstheme found in waterchem.R
 GPP<-ggplot(Metstats, 
             aes(x=Day,y=meanGPP, fill=NewTreat, color=NewTreat))+
@@ -139,7 +139,7 @@ wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,],
   geom_vline(xintercept=0, linetype="dashed")+
   scale_y_continuous(trans="log10", breaks=c(1,3,10,30,100,1000))+
   scale_x_continuous(breaks = unique(ChlSummary$Day), name="")+
-  ylab(expression(atop("Water Column Chl. a", paste("ug "%*%L^-1))))+
+  ylab(expression(atop("Water Column Chl. a", paste(mu,"g "%*%L^-1))))+
   fronteirstheme+
   theme(legend.direction="horizontal",legend.position = c(0,1),
         axis.title.x = element_text(size=rel(0)))
@@ -153,8 +153,8 @@ benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,],
   scale_color_manual(values=col6, name="Treatment")+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept=0, linetype="dashed") +
-  scale_x_continuous(breaks = unique(ChlSummary$Day), name="Sampling Days")+
-  ylab(expression(atop("Benthic Chlorophyll a", paste("ug "%*%cm^-2))))+
+  scale_x_continuous(breaks = unique(ChlSummary$Day), name="Sampling Day")+
+  ylab(expression(atop("Benthic Chlorophyll a", paste(mu,"g "%*%cm^-2))))+
   fronteirstheme
 chlplot<-plot_grid(wcchl,benchl, ncol=1, labels="")
 ggsave("DeathFigures/Fig4.tiff",chlplot, width=9, height=4, dpi=300)
@@ -168,7 +168,7 @@ summary(Wchl1)
 ranova(Wchl1)
 #assumptions
 hist(residuals(Wchl1),col="darkgrey") #normally distibuted?
-plot(fitted(Wchl1), residuals(Wchl1)) #heteroscadastic
+plot(fitted(Wchl1), residuals(Wchl1)) #heteroscadastic?
 qqnorm(resid(Wchl1)); qqline(resid(Wchl1))
 
 #benthic

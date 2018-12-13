@@ -88,3 +88,31 @@ interval(ymd("2018-07-02"), ymd("2018-07-11")) %/% days()
   
 ggplot(WCdata, aes(x=Date, y=perLost, group=Mussel))+
     ylab("percent lost daily")+geom_point()
+
+#### Field Community Data ####
+FieldM<-read_excel("CommunityDataDroughtExamples.xlsx") %>% select(-Before, -After) %>%
+  gather(time, percentage, c("PerBefore", "PerAfter"))
+tgplot<-ggplot(FieldM, aes(x=time, y=percentage, fill=ThemalGuild))+
+  geom_bar(stat="identity")+facet_wrap(~River)+
+  scale_fill_manual(name="Thermal Guild", label=c("Unknown","Sensitive","Tolerant"),
+                    values=c("gold","#f8a800","#cf1c24"))+
+  scale_y_continuous(label=c("0%","25%","50%","75%","100%"), name="Thermal Guild Abundance")+
+  scale_x_discrete(label=c("Before","After"), name="")+fronteirstheme+
+  theme(legend.position ="right",
+        legend.text = element_text(size=rel(.45)),
+        legend.title = element_text(size=rel(.5)),
+        strip.text.x = element_text(size=rel(.6)),
+        strip.background = element_rect(color="black", fill="white"))
+complot<-ggplot(FieldM, aes(x=time, y=percentage, fill=Tribe))+
+  geom_bar(stat="identity")+facet_wrap(~River) +
+  scale_fill_manual(values=c("#005b68","#7dc3cb","#bbdddf",
+                             "#d7b410","#8e8f27"))+
+  scale_y_continuous(label=c("0%","25%","50%","75%","100%"), name="Community Composition")+
+  scale_x_discrete(label=c("Before","After"), name="")+fronteirstheme+
+  theme(legend.position ="right",
+        legend.text = element_text(size=rel(.37)),
+        legend.title = element_text(size=rel(.5)),
+        strip.text.x = element_text(size=rel(.6)),
+        strip.background = element_rect(color="black", fill="white"))
+fieldplot<-plot_grid(tgplot, complot, ncol=1)
+ggsave("Fig1.tiff", fieldplot, dpi=300, width=3.34, height=5)
