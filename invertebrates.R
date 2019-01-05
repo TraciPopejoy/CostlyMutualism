@@ -33,7 +33,7 @@ biomass<-function(Fam, Ord, Length) {
   #which regressions were actually built for insects this size
   #idx2<- c(Length>=plcoeffs[,19] & Length<=plcoeffs[,20]) 
   #idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
-  d1<-plcoeffs[]
+  d1<-plcoeffs
   mass<-d1$a*(Length^d1$b) #power law to determine biomass
   tmass<-cbind(tmass,mass) #get vector of mass values from different eq.
 }
@@ -51,6 +51,8 @@ InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>%
               AvgLength=mean(Length.mm, na.rm=T)) %>%
   mutate(Avg.BM=TotalBiomass/AvgLength,
          Week.n=as.numeric(Week))
+InvBMSum %>% group_by(Week, NewTreat) %>% tally()
+
 library(lubridate)
 tempinv<-InvBMSum %>% select(-Treatment, -Avg.BM,-Week.n) %>%
   mutate(Date=case_when(Week==0~ymd("2018-06-12"),
@@ -64,15 +66,15 @@ ggplot(InvBMSum, aes(x=Week, y=TotalBiomass, fill=NewTreat))+
   geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
 
 invgraph<-InvBMSum %>% left_join(physchem, by=c("Week.n"="Week","Tank")) %>%
-  filter(Week.n>.5) %>%
-  select(-Temp.C, -Cond.uS, -DO.mgL, -WaterV.mLs, -Chl1, -Chl2)
+  filter(Week.n >= 1) %>%
+  select(TxW, Tank, Week, Date, NewTreat, TotalBiomass, Richness, Count, BMDensity,AvgLength)
 
 Invplot<-ggplot(invgraph, aes(x=Date,y=BMDensity, 
                      fill=NewTreat, group=interaction(Date,NewTreat)))+
   geom_boxplot()+geom_vline(xintercept=ymd("2018-07-02"))+
   ylab(expression("Invertebrate Biomass mg "%*%m^-2)) +
   scale_fill_grey(start=0.3, end=0.9, name="Treatment")+fronteirstheme
-ggsave("Fig4.tiff",Invplot, width=3.34, height=3.34, dpi=300)
+ggsave("FigX.tiff",Invplot, width=3.34, height=3.34, dpi=300)
 
 #### NMDS ####
 InvComMat<-InvBioMass %>% 
@@ -266,16 +268,23 @@ summary(lm(InvComDistance~Treatment, data=comdistance))
 #area sampled in cm3
 library(tidyverse)
 library(readxl)
-WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv")
+WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv",
+                        col_types = c("text","numeric","text","text","numeric","numeric","numeric"))
 
 WCinv<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
                               VolSampled=(14*19)*Depth.mm, #volume of petri dish = volume sampled nsamples * area of square * depth
                               VolTotal=(8.3/2)^2*pi*Depth.mm,#volume of petri dish = area of dish * depth
                               VolumePull=540*(4*4*pi), #volume of the tank sampled
                               DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
-  group_by(Sample, Tank, Week) %>%
-  summarise(InvDen=sum(DensityNL)) %>% group_by(Tank, Week) %>% 
-  summarise(AvgDensityL=mean(InvDen))
+  group_by(Sample, Tank, Week,Taxa) %>%
+  summarise(InvDen.n.perL=sum(DensityNL))%>% group_by(Tank, Week) %>% 
+  summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T)) %>%
+  left_join(treat) %>% select(Tank, Week, AvgDensityL.n.perL, Treatment)
+ggplot(WCinv[WCinv$Week==1 | WCinv$Week==2,], 
+       aes(x=Week, y=AvgDensityL.n.perL, color=Treatment))+
+  geom_boxplot(aes(group=interaction(Week, Treatment)))#geom_line(aes(group=Tank))
+
+WCinv %>% group_by(Week, Treatment) %>% tally() %>% spread(Treatment, n)
 
 WCcom<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep=".")) %>% 
   select(-Depth.mm, -Size.mm, -CountN,-Week,-Tank) %>% 
