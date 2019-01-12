@@ -174,49 +174,6 @@ spnmds<-ggplot() +
 plot_grid(ctrlnmds,livenmds,deadnmds,spnmds, labels=c("Control","Live","Dead", ""))
 ggsave("./Figures/NMDSwhole.png")
 
-
-#### FISH MANUSCRIPT ####
-library(ggsci)
-TinvBMplot<-ggplot(InvBMSum[InvBMSum$Week==1 |
-                InvBMSum$Week==2, ], 
-       aes(x=Week, y=BMDensity, fill=Treatment))+
-  geom_boxplot()+
-  scale_fill_jco(name="Tank Treatment")+
-  ylab(expression("Invertebrate Biomass g"%*%m^-2))+
-  xlab("Time")+
-  scale_x_discrete(labels=c("start","finish"))+
-  theme(legend.justification=c(1,1),legend.position = c(.75,1))
-TinvCount<-ggplot(InvBMSum[InvBMSum$Week==1 |
-                              InvBMSum$Week==2,], 
-                   aes(x=Week, y=CountDensity, fill=Treatment))+
-  geom_boxplot()+scale_fill_jco(guide=F)+
-  ylab(expression("Invertebrates m"^-2))+xlab("Time")+
-  scale_x_discrete(labels=c("start","finish"))
-InvBMslope<-InvBMSum %>% ungroup() %>%
-  filter(Week==1 | Week==2) %>%
-  select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
-  mutate(InvBMrate=(`2`-`1`)/12)
-slopessss<-InvBMslope %>% left_join(treat)
-InvSlopplot<-ggplot(slopessss, 
-                  aes(x=Treatment, y=InvBMrate, color=Treatment))+
-  geom_point(size=3, position="jitter")+scale_color_jco(guide=F)+
-  labs(y=expression("delta ( Invertebrate Biomass )  "%*%day^ -1))+
-  geom_hline(yintercept=0, lty=2)  
-library(cowplot)
-fishInvPlot<-plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = "AUTO")
-ggsave("Fig1.tiff", fishInvPlot, dpi=300)
-
-library(lmerTest)
-fishinv<-lmer(Count~Treatment+(1|Week)+(1|Tank), data=InvBMSum[InvBMSum$Week==1 |
-                                           InvBMSum$Week==2, ])
-summary(fishinv)
-anova(fishinv)
-
-fishbio<-lmer(BMDensity~Treatment+(1|Week)+(1|Tank), data=InvBMSum[InvBMSum$Week==1 |
-                                                                 InvBMSum$Week==2, ])
-summary(fishbio)
-anova(fishbio)
-
 #### NMDS ####
 InvComMatfish<-InvBioMass %>% filter(Week=="1" | Week=="2") %>%
   group_by(TxW, Taxa) %>% summarize(sumC=sum(Count)) %>%
@@ -270,19 +227,33 @@ library(tidyverse)
 library(readxl)
 WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv",
                         col_types = c("text","numeric","text","text","numeric","numeric","numeric"))
-
-WCinv<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
+x<-biomass("Chaoboridae","Diptera", 1)
+WCinvInd<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
                               VolSampled=(14*19)*Depth.mm, #volume of petri dish = volume sampled nsamples * area of square * depth
                               VolTotal=(8.3/2)^2*pi*Depth.mm,#volume of petri dish = area of dish * depth
                               VolumePull=540*(4*4*pi), #volume of the tank sampled
                               DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
-  group_by(Sample, Tank, Week,Taxa) %>%
-  summarise(InvDen.n.perL=sum(DensityNL))%>% group_by(Tank, Week) %>% 
-  summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T)) %>%
-  left_join(treat) %>% select(Tank, Week, AvgDensityL.n.perL, Treatment)
+  group_by(Sample, Tank, Week,Taxa) %>% left_join(invkey)%>%
+  mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count)
+WCinv<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
+  summarise(InvDen.n.perL=sum(DensityNL),
+                              sumBMtrial=sum(BMest.mg)) %>% 
+  summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
+            meanBM.mg=mean(sumBMtrial, na.rm=T)) %>%
+  left_join(treat) %>% 
+  select(Tank, Week, AvgDensityL.n.perL, meanBM.mg, Treatment, Macro.Meio) %>%
+  gather(measurement, value, -Tank, -Week, -Treatment, -Macro.Meio)
 ggplot(WCinv[WCinv$Week==1 | WCinv$Week==2,], 
-       aes(x=Week, y=AvgDensityL.n.perL, color=Treatment))+
-  geom_boxplot(aes(group=interaction(Week, Treatment)))#geom_line(aes(group=Tank))
+       aes(x=Week, y=value, fill=Treatment))+
+  geom_boxplot(aes(group=interaction(Week, Treatment)))+
+  geom_point(position=position_dodge(.7), color="black",size=2)+
+  facet_wrap(~measurement, scales="free")#geom_line(aes(group=Tank))
+ggplot(WCinv[WCinv$Week==1 | WCinv$Week==2 & WCinv$measurement=="AvgDensityL.n.perL",], 
+       aes(x=Tank, y=value, fill=Macro.Meio))+
+  geom_bar(stat="identity")+facet_wrap(~Treatment+Week, scales="free_x")
+  geom_boxplot(aes(group=interaction(Week, Treatment)))+
+  geom_point(position=position_dodge(.7), color="black",size=2)+
+  facet_wrap(~measurement, scales="free")#geom_line(aes(group=Tank))
 
 WCinv %>% group_by(Week, Treatment) %>% tally() %>% spread(Treatment, n)
 
