@@ -3,8 +3,9 @@ library(readxl)
 
 #############     Invert Data in Benthic Samples    ##############
 #bring in enclosure and treatment data, trait/taxa list, and length weight regressions
+treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
 head(treat)
-BiomassReg<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx")
+BiomassReg<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx") #regressions excel sheet
 #THIS IS THE INSECT DATA
 Inv<-read_excel("./data/CostMutData.xlsx", sheet="BenthicMacroInvert",
                 col_types=c("guess","text","guess","numeric","numeric",
@@ -16,12 +17,14 @@ Inv<-read_excel("./data/CostMutData.xlsx", sheet="BenthicMacroInvert",
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
 
 invkey<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx", sheet="Key")
-InvClean<-Inv %>% right_join(invkey) %>% filter(Macro.Meio=="macro")
+
+InvClean<-Inv %>% left_join(invkey) %>% filter(Macro.Meio=="macro")
+InvClean %>% left_join(invkey, by="Taxa") %>% filter(is.na(Family.x))
 
 #############    Invert Biomass Calculation     #############
 #apply appropriate biomass regressions to each length
 biomass<-function(Fam, Ord, Length) {
-  tmass<-NULL
+  #tmass<-NULL
   #if not ID'd to family, use order level regressions
   if(is.na(match(Fam, BiomassReg$Family))){ 
     plcoeffs<-BiomassReg[BiomassReg$Order == Ord &
@@ -31,50 +34,54 @@ biomass<-function(Fam, Ord, Length) {
                            BiomassReg$Order == Ord&
                            !is.na(BiomassReg$Family==Fam), ] }
   #which regressions were actually built for insects this size
-  #idx2<- c(Length>=plcoeffs[,19] & Length<=plcoeffs[,20]) 
-  #idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
-  d1<-plcoeffs
+  idx2<- c(Length>=plcoeffs[,19] & Length<=plcoeffs[,20]) 
+  idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
+  d1<-plcoeffs[idx2,] #row by row????
   mass<-d1$a*(Length^d1$b) #power law to determine biomass
-  tmass<-cbind(tmass,mass) #get vector of mass values from different eq.
-}
-InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
-  group_by(TxW, Taxa, Family, Length.mm) %>% 
-  mutate(BM=mean(biomass(Family,Order, Length.mm)),
-         TotalBM=Count*BM)
+  #tmass<-cbind(tmass,mass)#get vector of mass values from different eq.
+  mean(mass, na.rm=T)
+  #print(Fam) #physidae order is messed up
+  #add error message and a nA option
+} #try #trycatch #stackoverflow
+#for loop with a print
 
-InvBMSum<-InvBioMass %>% group_by(TxW, Tank, Week, NewTreat, Treatment) %>% 
-    summarize(TotalBiomass=sum(TotalBM, na.omit=T)/1000,
+InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
+  #group_by(TxW, Taxa, Family, Length.mm) %>% 
+  rowwise() %>%
+  mutate(BM=biomass(Family,Order, Length.mm), 
+         TotalBM=Count*BM)
+library(lubridate)
+InvBMSum<-InvBioMass %>% 
+  group_by(TxW, Tank, Week, NewTreat, Treatment) %>% 
+    summarize(TotalBiomass=sum(TotalBM, na.rm=T)/1000,
               Richness=length(unique(Taxa)),
               Count=sum(Count, na.omit=T),
               BMDensity=TotalBiomass/(3*.0103),
               CountDensity=Count/(3*.0103),
               AvgLength=mean(Length.mm, na.rm=T)) %>%
   mutate(Avg.BM=TotalBiomass/AvgLength,
-         Week.n=as.numeric(Week))
-InvBMSum %>% group_by(Week, NewTreat) %>% tally()
-
-library(lubridate)
-tempinv<-InvBMSum %>% select(-Treatment, -Avg.BM,-Week.n) %>%
-  mutate(Date=case_when(Week==0~ymd("2018-06-12"),
+         Date=case_when(Week==0~ymd("2018-06-12"),
                         Week==1~ymd("2018-06-18"),
                         Week==2~ymd("2018-06-29"),
                         Week==3~ymd("2018-07-06"),
                         Week==4~ymd("2018-07-13")))
-#write_excel_csv(tempinv, "DeathInvertebrate1025.xls")
+InvBMSum %>% group_by(Week, NewTreat) %>% tally() %>% spread(Week,n)
+#write_excel_csv(InvBMSum, "DeathInvertebrate1025.xls")
 
-ggplot(InvBMSum, aes(x=Week, y=TotalBiomass, fill=NewTreat))+
-  geom_boxplot()+facet_wrap(~Week, scale="free")+theme_bw()
-
-invgraph<-InvBMSum %>% left_join(physchem, by=c("Week.n"="Week","Tank")) %>%
-  filter(Week.n >= 1) %>%
-  select(TxW, Tank, Week, Date, NewTreat, TotalBiomass, Richness, Count, BMDensity,AvgLength)
-
-Invplot<-ggplot(invgraph, aes(x=Date,y=BMDensity, 
-                     fill=NewTreat, group=interaction(Date,NewTreat)))+
-  geom_boxplot()+geom_vline(xintercept=ymd("2018-07-02"))+
-  ylab(expression("Invertebrate Biomass mg "%*%m^-2)) +
-  scale_fill_grey(start=0.3, end=0.9, name="Treatment")+fronteirstheme
-ggsave("FigX.tiff",Invplot, width=3.34, height=3.34, dpi=300)
+ggplot(InvBMSum[InvBMSum$Week!=0,], 
+       aes(x=Date, y=BMDensity, fill=NewTreat, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), 
+               position=position_dodge(width=1.5))+
+  ylab(expression("Invertebrate Biomass mg "%*%m^-2))+
+  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
+ggplot(InvBMSum[InvBMSum$Week!=0,], 
+       aes(x=Date, y=CountDensity, fill=NewTreat, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), 
+               position=position_dodge(width=1.5))+
+  ylab(expression("Invertebrates "%*%m^-2))+
+  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
 
 #### NMDS ####
 InvComMat<-InvBioMass %>% 
@@ -167,64 +174,17 @@ spnmds<-ggplot() +
   geom_polygon(data=hull.data.both, aes(x=NMDS1,y=NMDS2,fill=grptime,group=grptime),alpha=0.20) + # add the convex hulls
   geom_text(data=species.scores,
             aes(x=NMDS1,y=NMDS2,label=species), size=3) +
-  scale_fill_manual(values=pal_futurama()(6), name="Treat.Time")+nmdstheme+
+  scale_fill_manual(values=pal_futurama()(6), name="Treat.Time", guide=F)+nmdstheme+
   theme(legend.position = c(.88,.7), legend.text = element_text(size=rel(.55)),
         legend.title= element_text(size=rel(.7)),
         legend.background = element_rect(fill=alpha(0.1)))
+library(cowplot);library(ggsci)
 plot_grid(ctrlnmds,livenmds,deadnmds,spnmds, labels=c("Control","Live","Dead", ""))
 ggsave("./Figures/NMDSwhole.png")
 
-#### NMDS ####
-InvComMatfish<-InvBioMass %>% filter(Week=="1" | Week=="2") %>%
-  group_by(TxW, Taxa) %>% summarize(sumC=sum(Count)) %>%
-  spread(Taxa, sumC) %>% left_join(InvBMSum[,1:5]) %>%
-  replace(., is.na(.),0)
-
-library(vegan)
-nmds<-metaMDS(InvComMatfish[,-c(1,21:24)])
-data.scores <- as.data.frame(scores(nmds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
-data.scores$site <- InvComMatfish$TxW  # create a column of site names, from the rownames of data.scores
-data.scores$grp <- InvComMatfish$Treatment  #  add the grp variable created earlier
-data.scores$week<- InvComMatfish$Week
-data.scores$time<- case_when(data.scores$week==1 ~ "before",
-                             data.scores$week==2 ~ "after")
-data.scores$grptime<-paste(data.scores$grp, data.scores$time, sep=".")
-head(data.scores)  #look at the data
-
-species.scores <- as.data.frame(scores(nmds, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
-species.scores$species <- rownames(species.scores)  # create a column of species, from the rownames of species.scores
-head(species.scores)  #look at the data
-
-grp.a <- data.scores[data.scores$grp == "Control", ][chull(data.scores[data.scores$grp == 
-                                                                         "Control", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
-grp.b <- data.scores[data.scores$grp == "Mussel", ][chull(data.scores[data.scores$grp == 
-                                                                      "Mussel", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
-hull.data <- rbind(grp.a, grp.b)  #combine grp.a and grp.b
-nmdsFISH<-ggplot() + 
-  geom_polygon(data=hull.data, aes(x=NMDS1,y=NMDS2,fill=grp,group=grp),alpha=0.20) + # add the convex hulls
-  geom_text(data=species.scores,
-            aes(x=NMDS1,y=NMDS2,label=species),alpha=0, size=3) +  # add the species labels
-  geom_text(data=data.scores,aes(x=NMDS1,y=NMDS2, label=site),size=4) + # add the point markers
-  geom_text(data=species.scores,aes(x=NMDS1,y=NMDS2, label=species),
-            size=3, alpha=.7, color="darkgray") + # add the point markers
-  scale_fill_manual(values=pal_jco()(2))+
-  coord_equal() + nmdstheme
-nmdsFISH
-
-comdistance<-data.scores %>% left_join(InvComMatfish, by=c("site"="TxW"))%>% 
-  select(NMDS1,NMDS2, week, Tank) %>% mutate(week2=paste(week,"n")) %>%
-  spread(week,NMDS1) %>% spread(week2, NMDS2) %>% group_by(Tank) %>%
-  summarise_all(funs(.[which(!is.na(.))])) %>% left_join(treat) %>%
-  select(Tank, Treatment, `1`,`2`,`1 n`,`2 n`) %>% 
-  mutate(InvComDistance=sqrt(abs((`2`-`1`)^2+(`2 n`-`1 n`)^2)),
-         InvComSlope=InvComDistance/12)
-ggplot(comdistance, aes(x=Treatment, y=InvComDistance)) + geom_boxplot()
-summary(lm(InvComDistance~Treatment, data=comdistance))
-
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
-library(tidyverse)
-library(readxl)
+library(tidyverse);library(readxl)
 WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv",
                         col_types = c("text","numeric","text","text","numeric","numeric","numeric"))
 x<-biomass("Chaoboridae","Diptera", 1)
@@ -234,39 +194,98 @@ WCinvInd<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
                               VolumePull=540*(4*4*pi), #volume of the tank sampled
                               DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
   group_by(Sample, Tank, Week,Taxa) %>% left_join(invkey)%>%
-  mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count)
+  mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count,
+         BMestDens=(BMest.mg/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
+  filter(!is.na(Macro.Meio))
 WCinv<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
   summarise(InvDen.n.perL=sum(DensityNL),
-                              sumBMtrial=sum(BMest.mg)) %>% 
+                              sumBMtrial=sum(BMestDens)) %>% 
   summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
-            meanBM.mg=mean(sumBMtrial, na.rm=T)) %>%
+            meanBM.mg.L=mean(sumBMtrial, na.rm=T)) %>%
   left_join(treat) %>% 
-  select(Tank, Week, AvgDensityL.n.perL, meanBM.mg, Treatment, Macro.Meio) %>%
-  gather(measurement, value, -Tank, -Week, -Treatment, -Macro.Meio)
-ggplot(WCinv[WCinv$Week==1 | WCinv$Week==2,], 
-       aes(x=Week, y=value, fill=Treatment))+
-  geom_boxplot(aes(group=interaction(Week, Treatment)))+
-  geom_point(position=position_dodge(.7), color="black",size=2)+
-  facet_wrap(~measurement, scales="free")#geom_line(aes(group=Tank))
-ggplot(WCinv[WCinv$Week==1 | WCinv$Week==2 & WCinv$measurement=="AvgDensityL.n.perL",], 
-       aes(x=Tank, y=value, fill=Macro.Meio))+
-  geom_bar(stat="identity")+facet_wrap(~Treatment+Week, scales="free_x")
-  geom_boxplot(aes(group=interaction(Week, Treatment)))+
-  geom_point(position=position_dodge(.7), color="black",size=2)+
-  facet_wrap(~measurement, scales="free")#geom_line(aes(group=Tank))
+  select(Tank, Week, AvgDensityL.n.perL, meanBM.mg.L, Treatment, Macro.Meio) %>%
+  gather(measurement, value, -Tank, -Week, -Treatment, -Macro.Meio) 
 
-WCinv %>% group_by(Week, Treatment) %>% tally() %>% spread(Treatment, n)
+WCinv2<-WCinv %>%
+  mutate(part.treat=paste(Treatment,Macro.Meio, sep="."),
+         treat.week=paste(Treatment,Week, sep="."),
+         fme=factor(measurement, 
+                    levels=c("AvgDensityL.n.perL","meanBM.mg.L"),
+                    labels=c('"Invertebrates L"^-1', 
+                             '"Invertebrate Biomass mg L"^-1'))) %>% 
+  filter(Week==1|Week==2)
+                         
+ggplot(WCinv2,
+       aes(x=part.treat, y=value, fill=Treatment))+
+  geom_boxplot()+facet_wrap(~Week+measurement, scales="free_y")
 
-WCcom<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep=".")) %>% 
-  select(-Depth.mm, -Size.mm, -CountN,-Week,-Tank) %>% 
-  spread(Taxa, Count) %>% replace_na(list(ChironomidaeL=0,
-                                          Copepoda=0,
-                                          Daphnia=0,
-                                          DipteraAdult=0,
-                                          Dytiscidae=0,
-                                          Oligocheata=0))
+wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
+  stat_summary(position=position_dodge(width=.2), size=1.2)+
+  scale_y_continuous(name="")+
+  scale_x_continuous(name="Sampling Day",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
+  scale_color_manual(values=mypal, name="Treatment-\nInvertebrate Size", 
+                    labels=c("Control-macrofauna   ","Control-meiofauna   ",
+                             "Mussel-macrofauna","Mussel-macrofauna"))+
+  facet_wrap(~fme, scales="free_y", strip.position="left", 
+             labeller = label_parsed)+
+  theme(strip.background =element_rect(fill=NA),
+        strip.placement="outside")
+ggdraw(wcdots) + 
+  draw_label("A", x=.11, y=.95) + 
+  draw_label("B", x=.44, y=.95)
+ggsave("FishWCinvDots.tiff",dpi=300, width=7, height=3)
 
+wcnplot<-ggplot()+
+  geom_boxplot(data=WCinv2[WCinv2$Macro.Meio=="meio" & WCinv2$measurement=="AvgDensityL.n.perL",],
+               aes(x=Week,y=value, fill=part.treat, group=interaction(Week,part.treat)),
+               position=position_dodge(width=.5))+
+  geom_boxplot(data=WCinv2[WCinv2$Macro.Meio=="macro"& WCinv2$measurement=="AvgDensityL.n.perL",],
+               aes(x=Week,y=value, fill=part.treat, group=interaction(Week,part.treat)),
+               position=position_dodge(width=.5))+
+  scale_fill_manual(values=mypal, guide=F)+
+  scale_y_continuous(name=expression("Invertebrates L"^-1))+
+  scale_x_continuous(name="",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
+  facet_wrap(~Treatment, strip.position = "bottom")+
+  theme(strip.background =element_rect(fill=NA),
+        strip.placement = "outside")
+wcbmplot<-ggplot()+
+  geom_boxplot(data=WCinv2[WCinv2$Macro.Meio=="meio" & WCinv2$measurement=="meanBM.mg.L",],
+               aes(x=Week,y=value, fill=part.treat, group=interaction(Week,part.treat)),
+               position=position_dodge(width=.5))+
+  geom_boxplot(data=WCinv2[WCinv2$Macro.Meio=="macro"& WCinv2$measurement=="meanBM.mg.L",],
+               aes(x=Week,y=value, fill=part.treat, group=interaction(Week,part.treat)),
+               position=position_dodge(width=.5))+
+  scale_fill_manual(values=mypal, name="Treatment-Invertebrate Size", 
+                    labels=c("Control-macrofauna   ","Control-meiofauna   ",
+                             "Mussel-macrofauna","Mussel-macrofauna"))+
+  scale_y_continuous(name=expression("Invertebrate Biomass mg L"^-1))+
+  scale_x_continuous(name="",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
+  facet_wrap(~Treatment, strip.position = "bottom")+
+  guides(fill=guide_legend(ncol=2))+
+  theme(strip.background =element_rect(fill=NA),
+        strip.placement = "outside",
+        legend.position = "none")
+library(cowplot)
+legend<-get_legend(wcbmplot+theme(legend.position =c(.25,.8)))
+prow<-plot_grid(wcnplot,wcbmplot, labels="AUTO")
+plot_grid(prow,legend, nrow=2, rel_heights = c(1,.12))
+ggsave("FishWCinv.tiff", dpi=300, width=6, height=3.8)
 
+WCinvMData<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
+    summarise(InvDen.n.perL=sum(DensityNL),
+              sumBMtrial=sum(BMest.mg)) %>% 
+    summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
+              meanBM.mg=mean(sumBMtrial, na.rm=T)) %>%
+    left_join(treat) %>% 
+    select(Tank, Week, AvgDensityL.n.perL, meanBM.mg, Treatment)
+
+library(lmerTest)
+WCinvMacroM<-lmer(meanBM.mg~Treatment+Week+(1|Tank), data=WCinvMData)
+summary(WCinvMacroM)
+anova(WCinvMacroM)
+    
+WCinvMData %>% group_by(Week, Treatment) %>% tally() %>% spread(Treatment, n)
 
 ##### citations
 View(semi_join(BiomassReg,InvBioMass[,8:10], by="Family"))
