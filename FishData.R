@@ -289,7 +289,7 @@ IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
            legend.title="Infection Status",
            legend.labs=c("Not Infected","Infected"),
            xlab="Time (days)",
-           
+         
            ylab="")
 library(cowplot)
 survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = "AUTO")
@@ -360,7 +360,7 @@ summary(aov(lm(FAvgLength.mm~Treatment+(1|Week), data=covtabFull)))
 summary(aov(lm(FishBMDen~Treatment+(1|Week), data=covtabFull)))
 summary(aov(lm(BMDensity~Treatment+(1|Week), data=covtabFull)))
 
-library(ggsci)
+library(ggsci);library(cowplot)
 benthic<-ggplot(covtabFull, aes(x=as.character(Week), y=BenthicChlA.ug.cm, fill=Treatment))+
   geom_boxplot()+
   scale_fill_jco(name="Tank Treatment")+

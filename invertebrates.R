@@ -46,7 +46,6 @@ biomass<-function(Fam, Ord, Length) {
 #for loop with a print
 
 InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
-  #group_by(TxW, Taxa, Family, Length.mm) %>% 
   rowwise() %>%
   mutate(BM=biomass(Family,Order, Length.mm), 
          TotalBM=Count*BM)
@@ -81,6 +80,13 @@ ggplot(InvBMSum[InvBMSum$Week!=0,],
   stat_summary(aes(fill=NewTreat, shape=NewTreat), 
                position=position_dodge(width=1.5))+
   ylab(expression("Invertebrates "%*%m^-2))+
+  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
+ggplot(InvBMSum[InvBMSum$Week!=0,], 
+       aes(x=Date, y=Richness, fill=NewTreat, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
+  stat_summary(aes(fill=NewTreat, shape=NewTreat), 
+               position=position_dodge(width=1.5))+
+  ylab("Taxonomic Richness")+
   geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
 
 #### NMDS ####
@@ -181,6 +187,37 @@ spnmds<-ggplot() +
 library(cowplot);library(ggsci)
 plot_grid(ctrlnmds,livenmds,deadnmds,spnmds, labels=c("Control","Live","Dead", ""))
 ggsave("./Figures/NMDSwhole.png")
+
+#exploring differences in life stages
+IBMlifestage<-InvBioMass %>% filter(Macro.Meio=="macro" & !is.na(LifeStage)) %>%
+  group_by(Tank, Week, TxW, NewTreat, LifeStage) %>%
+  summarize(LSTotal=sum(Count))
+ggplot(IBMlifestage,aes(x=Tank,y=LSTotal, fill=LifeStage))+
+  geom_bar(stat="identity")+facet_wrap(~Week+NewTreat, scales="free_x")+
+  theme_bw()
+ggplot(IBMlifestage[IBMlifestage$LifeStage=="pupa",], 
+       aes(x=Week, y=LSTotal, color=NewTreat))+
+  geom_boxplot(aes(group=interaction(Week, NewTreat)))+
+  geom_point(position=position_dodge(width=.75))+
+  #stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
+  #stat_summary(aes(fill=NewTreat, shape=NewTreat), 
+  #             position=position_dodge(width=1.5))+
+  ylab("Invertebrate Count")+
+  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
+
+#exploring Order composition
+IBMorder<-InvBioMass %>% filter(Macro.Meio=="macro" & Week !=0) %>%
+  group_by(Tank, Week, TxW, NewTreat, Order) %>%
+  summarize(OTotal=sum(Count))
+ggplot(IBMorder[IBMorder$NewTreat=="Dead",],aes(x=Tank,y=OTotal, fill=Order))+
+  geom_bar(stat="identity")+facet_wrap(~Week)+
+  theme_bw()
+ggplot(IBMorder[IBMorder$NewTreat=="Live",],aes(x=Tank,y=OTotal, fill=Order))+
+  geom_bar(stat="identity")+facet_wrap(~Week)+
+  theme_bw()
+ggplot(IBMorder[IBMorder$NewTreat=="Control",],aes(x=Tank,y=OTotal, fill=Order))+
+  geom_bar(stat="identity")+facet_wrap(~Week)+
+  theme_bw()
 
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
