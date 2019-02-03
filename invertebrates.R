@@ -236,7 +236,7 @@ WCinvInd<-WCinvertRaw %>%
   mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count,
          BMestDens=(BMest.mg/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
   filter(!is.na(Macro.Meio))
-WCinv<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
+WCinvX<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
   summarise(InvDen.n.perL=sum(DensityNL),
                               sumBMtrial=sum(BMestDens)) %>% 
   summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
@@ -266,14 +266,14 @@ wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
   scale_x_continuous(name="Sampling Day",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
   scale_color_manual(values=mypal, name="Treatment-\nInvertebrate Size", 
                     labels=c("Control-macrofauna   ","Control-meiofauna   ",
-                             "Mussel-macrofauna","Mussel-macrofauna"))+
+                             "Mussel-macrofauna","Mussel-meiofauna"))+
   facet_wrap(~fme, scales="free_y", strip.position="left", 
              labeller = label_parsed)+
   theme(strip.background =element_rect(fill=NA),
         strip.placement="outside")
 ggdraw(wcdots) + 
-  draw_label("A", x=.1, y=.95) + 
-  draw_label("B", x=.42, y=.95)
+  draw_label("A", x=.075, y=.95) + 
+  draw_label("B", x=.37, y=.95)
 ggsave("FishWCinvDots.tiff",dpi=300, width=7, height=3)
 
 wcnplot<-ggplot()+
@@ -298,7 +298,7 @@ wcbmplot<-ggplot()+
                position=position_dodge(width=.5))+
   scale_fill_manual(values=mypal, name="Treatment-Invertebrate Size", 
                     labels=c("Control-macrofauna   ","Control-meiofauna   ",
-                             "Mussel-macrofauna","Mussel-macrofauna"))+
+                             "Mussel-macrofauna","Mussel-meiofauna"))+
   scale_y_continuous(name=expression("Invertebrate Biomass mg L"^-1))+
   scale_x_continuous(name="",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
   facet_wrap(~Treatment, strip.position = "bottom")+
@@ -312,12 +312,24 @@ prow<-plot_grid(wcnplot,wcbmplot, labels="AUTO")
 plot_grid(prow,legend, nrow=2, rel_heights = c(1,.12))
 ggsave("FishWCinv.tiff", dpi=300, width=6, height=3.8)
 
-WCinv2
-WCmod1<-aov(lm(value~Treatment+Week, data=WCinv2[WCinv2$measurement=="AvgDensityL.n.perL",]))
-summary(WCmod1)
-WCmod2<-aov(lm(value~Treatment+Week, data=WCinv2[WCinv2$measurement=="meanBM.mg.L",]))
-summary(WCmod2)
+WCinvX<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
+  summarise(InvDen.n.perL=sum(DensityNL),
+            sumBMtrial=sum(BMestDens)) %>% 
+  summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
+            meanBM.mg.L=mean(sumBMtrial, na.rm=T)) %>%
+  left_join(treat) %>% 
+  select(Tank, Week, AvgDensityL.n.perL, meanBM.mg.L, Treatment) %>%
+  gather(measurement, value, -Tank, -Week, -Treatment) %>% filter(Week==1 | Week==2)
 
+library(lmerTest)
+
+wcabund<-lmer(value~Treatment+Week+(1|Tank), data=WCinvX[WCinvX$measurement=="AvgDensityL.n.perL",])
+summary(wcabund)
+anova(wcabund)
+
+wcbio<-lmer(value~Treatment+Week+(1|Tank), data=WCinvX[WCinvX$measurement=="meanBM.mg.L",])
+summary(wcbio)
+anova(wcbio)
 
 WCinvMData<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
     summarise(InvDen.n.perL=sum(DensityNL),
@@ -327,11 +339,6 @@ WCinvMData<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
     left_join(treat) %>% 
     select(Tank, Week, AvgDensityL.n.perL, meanBM.mg, Treatment)
 
-library(lmerTest)
-WCinvMacroM<-lmer(meanBM.mg~Treatment+Week+(1|Tank), data=WCinvMData)
-summary(WCinvMacroM)
-anova(WCinvMacroM)
-    
 WCinvMData %>% group_by(Week, Treatment) %>% tally() %>% spread(Treatment, n)
 
 ##### citations

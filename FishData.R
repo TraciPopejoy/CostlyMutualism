@@ -17,17 +17,13 @@ FishData %>%
   summarise(meanW=mean(Weight.g),sdW=sd(Weight.g),
             meanL=mean(StandLength.mm), sdL=sd(StandLength.mm))
 
-
 ggplot(FishData[is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_histogram()
 ggplot(FishData[!is.na(FishData$InfectionDensity.gloch),], aes(x=Died))+geom_histogram()
-ggplot(FishData, aes(x=DaysSurvived, y=InfectionDensALT, color=Infected))+
-  geom_point()+geom_smooth(method="lm")
-ggplot(FishData, aes(x=Died))+
-  geom_histogram()+facet_grid(~Treatment+Infected)+
-  fungraph+theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1))
+
+#graph of infection densitites based on infection round
 ggplot(FishData[FishData$Infected=="Y",], 
        aes(x=InfectionRound, y=InfectionDensity.gloch))+geom_boxplot()+
-  ylab("Glochidia per fish")+xlab("Infection round")+fungraph
+  ylab("Glochidia per fish")+xlab("Infection round")
 
 #Infectiondata provides summary statistics of infection density
 Infectiondata<-FishData %>% filter(Infected=="Y") %>% group_by(InfectionRound) %>% 
@@ -97,24 +93,9 @@ ggplot(CumDeath, aes(x=DiedALT, y=Alive))+
   ylab("Number of Alive Fish")
 
 FishData$TreatmentType<-paste(FishData$Treatment, FishData$Infected)
-ggplot(FishData, aes(x=Died, y=Weight.g, color=TreatmentType))+
-  geom_point()+geom_smooth(method="lm", level=.2)
 ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
   geom_point()+
   geom_smooth(method="lm", level=.2)
-
-###don't know what TankMean is
-graphing<-TankMean %>% select(-meanInfect, -meanWeightChange) %>% 
-  spread(Infected, meanDaysSurv)%>% gather(variable, value, -c(Tank, Treatment))
-ggplot(graphing, 
-       aes(x=variable, y=value, color=Treatment))+
-  geom_point(aes(color=Treatment), size=2,alpha=.3, position=position_dodge(.5))+
-  stat_summary(aes(color=Treatment),size=2, alpha=1, position=position_dodge(.5))+
-  theme_bw()+
-  scale_x_discrete("",labels=c("N"="Not Infected","Y"="Infected"))+
-  scale_color_manual(values=c("Mussel"="grey","Control"="black"))+
-  ylab("Average Fish Survival (days)")+fishTheme
-  #geom_line(aes(group=Tank), alpha=.2)
 
 #### Invertebrate Analysis ####
 library(ggsci)
@@ -122,9 +103,9 @@ library(ggsci)
 #calculates biomass of invertebrates from entire experiment
 InvFishBMSum<-InvBioMass %>% filter(Week==1 | Week==2) %>%
   group_by(TxW, Tank, Week, Treatment, Treatment) %>% 
-  summarize(TotalBiomass=sum(TotalBM, na.omit=T)/1000,
+  summarize(TotalBiomass=sum(TotalBM, na.rm=T)/1000,
             Richness=length(unique(Taxa)),
-            Count=sum(Count, na.omit=T),
+            Count=sum(Count, na.rm=T),
             BMDensity=TotalBiomass/(3*.0103),
             CountDensity=Count/(3*.0103),
             AvgLength=mean(Length.mm, na.rm=T)) %>%
@@ -138,7 +119,7 @@ TinvBMplot<-ggplot(InvFishBMSum, aes(x=Week, y=BMDensity, fill=Treatment))+
   ylab(expression("Invertebrate Biomass g"%*%m^-2))+
   xlab("Time")+
   scale_x_discrete(labels=c("Day -1","Day 11"))+
-  theme(legend.justification=c(1,1),legend.position = c(.95,1.05))
+  theme(legend.justification=c(1,1),legend.position ="none")
 TinvCount<-ggplot(InvFishBMSum, 
                   aes(x=Week, y=CountDensity, fill=Treatment))+
   geom_boxplot()+scale_fill_jco(guide=F)+
@@ -153,17 +134,28 @@ InvSlopplot<-ggplot(slopessss,
                     aes(x=Treatment, y=InvBMrate, color=Treatment))+
   geom_point(size=3, position="jitter")+scale_color_jco(guide=F)+
   labs(y=expression("delta( Biomass ) g"%*%day^ -1))+
-  geom_hline(yintercept=0, lty=2)  
+  geom_hline(yintercept=0, lty=2) 
 library(cowplot)
+legend1<-get_legend(TinvBMplot+
+                      theme(legend.position = c(.7,1.1),
+                            legend.direction = "horizontal"))
 fishInvPlot<-plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = "AUTO")
-ggsave("FishFig1.tiff", fishInvPlot, dpi=300, width = 7, height = 3.5)
+plot_grid(fishInvPlot,legend1, nrow=2, rel_heights = c(1.1,.1))
+ggsave("FishFig1.tiff", dpi=600, width = 7, height = 3.5, units="in")
+
+InvFishBMSum<-InvFishBMSum %>% 
+  mutate(Day=case_when(Week=="1"~-1, Week=="2"~11))
+
+InvFishBMSum %>% 
+  group_by(Treatment, Week) %>% 
+  summarize(meanBM=mean(BMDensity),meanDen=mean(CountDensity))
 
 library(lmerTest)
-fishinv<-lmer(Count~Treatment+Week+(1|Tank), data=InvFishBMSum)
+fishinv<-lmer(Count~Treatment*Week+(1|Tank), data=InvFishBMSum)
 summary(fishinv)
 anova(fishinv)
 
-fishbio<-lmer(BMDensity~Treatment+Week+(1|Tank), data=InvFishBMSum)
+fishbio<-lmer(BMDensity~Treatment*Week+(1|Tank), data=InvFishBMSum)
 summary(fishbio)
 anova(fishbio)
 
@@ -188,12 +180,6 @@ InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>%
   mutate(Est.I.bm=InvBMrate*timeNumA + `1`)
 
 #bad idea to try and look at community change from 1 to 2         
-head(comdistance)
-comModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>% 
-  add_column(Tank=rep(sort(unique(FishSurv1$Tank)),10)) %>% arrange(Tank) %>%
-  mutate(timeNumA=interval(ymd("2018-06-18"),ymd(Date)) %/% days()) %>% 
-  left_join(comdistance) %>% 
-  mutate(Est.I.COM=InvComSlope*timeNumA) %>% select(-`1`,-`2`,-`1 n`, -`2 n`)
 
 FST<-left_join(FishSurv1, InvBModel) %>%  
   select(-status.char, -alive)
