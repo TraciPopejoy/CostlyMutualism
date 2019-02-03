@@ -1,5 +1,5 @@
-library(reshape2); library(ggplot2); library(tidyverse); library(vegan)
-library(readxl)
+library(reshape2); library(ggplot2); library(tidyverse); 
+library(vegan); library(readxl)
 
 #############     Invert Data in Benthic Samples    ##############
 #bring in enclosure and treatment data, trait/taxa list, and length weight regressions
@@ -40,7 +40,7 @@ biomass<-function(Fam, Ord, Length) {
   mass<-d1$a*(Length^d1$b) #power law to determine biomass
   #tmass<-cbind(tmass,mass)#get vector of mass values from different eq.
   mean(mass, na.rm=T)
-  #print(Fam) #physidae order is messed up
+  #print(paste(Fam,Ord)) #physidae order is messed up
   #add error message and a nA option
 } #try #trycatch #stackoverflow
 #for loop with a print
@@ -224,13 +224,15 @@ ggplot(IBMorder[IBMorder$NewTreat=="Control",],aes(x=Tank,y=OTotal, fill=Order))
 library(tidyverse);library(readxl)
 WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv",
                         col_types = c("text","numeric","text","text","numeric","numeric","numeric"))
-x<-biomass("Chaoboridae","Diptera", 1)
-WCinvInd<-WCinvertRaw %>% mutate(Sample=paste(Tank, Week, CountN, sep="."),
-                              VolSampled=(14*19)*Depth.mm, #volume of petri dish = volume sampled nsamples * area of square * depth
-                              VolTotal=(8.3/2)^2*pi*Depth.mm,#volume of petri dish = area of dish * depth
-                              VolumePull=540*(4*4*pi), #volume of the tank sampled
-                              DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
-  group_by(Sample, Tank, Week,Taxa) %>% left_join(invkey)%>%
+WCinvInd<-WCinvertRaw %>% 
+  mutate(Sample=paste(Tank, Week, CountN, sep="."),
+        VolSampled=(14*19)*Depth.mm, #volume of petri dish = volume sampled nsamples * area of square * depth
+        VolTotal=(8.3/2)^2*pi*Depth.mm,#volume of petri dish = area of dish * depth
+        VolumePull=540*(4*4*pi), #volume of the tank sampled
+        DensityNL=(Count/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
+  left_join(invkey)%>% filter(!is.na(Family) & Order!="misc" & 
+                                Order!="Copepoda" & Family!="Hydracarina") %>%
+  rowwise()%>%
   mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count,
          BMestDens=(BMest.mg/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
   filter(!is.na(Macro.Meio))
@@ -255,7 +257,8 @@ WCinv2<-WCinv %>%
 ggplot(WCinv2,
        aes(x=part.treat, y=value, fill=Treatment))+
   geom_boxplot()+facet_wrap(~Week+measurement, scales="free_y")
-
+mypal<-c("#0073C2","#42B4FF","#EFC000","#FFE16B")
+show_col(mypal)
 wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
   stat_summary(position=position_dodge(width=.2), size=1.2)+
@@ -269,8 +272,8 @@ wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
   theme(strip.background =element_rect(fill=NA),
         strip.placement="outside")
 ggdraw(wcdots) + 
-  draw_label("A", x=.11, y=.95) + 
-  draw_label("B", x=.44, y=.95)
+  draw_label("A", x=.1, y=.95) + 
+  draw_label("B", x=.42, y=.95)
 ggsave("FishWCinvDots.tiff",dpi=300, width=7, height=3)
 
 wcnplot<-ggplot()+
@@ -308,6 +311,13 @@ legend<-get_legend(wcbmplot+theme(legend.position =c(.25,.8)))
 prow<-plot_grid(wcnplot,wcbmplot, labels="AUTO")
 plot_grid(prow,legend, nrow=2, rel_heights = c(1,.12))
 ggsave("FishWCinv.tiff", dpi=300, width=6, height=3.8)
+
+WCinv2
+WCmod1<-aov(lm(value~Treatment+Week, data=WCinv2[WCinv2$measurement=="AvgDensityL.n.perL",]))
+summary(WCmod1)
+WCmod2<-aov(lm(value~Treatment+Week, data=WCinv2[WCinv2$measurement=="meanBM.mg.L",]))
+summary(WCmod2)
+
 
 WCinvMData<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
     summarise(InvDen.n.perL=sum(DensityNL),
