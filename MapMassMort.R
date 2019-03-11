@@ -65,10 +65,17 @@ galakes<-crop(shape_hydropoly, c(basinsGA@bbox[1], basinsGA@bbox[3],
 plot(GArivers, ylim=c(30.69960,32.5))
 plot(galakes, add=T, col='lightblue')
 plot(getBasin(test), add=T, border='darkgrey')
+GAflowLines <- getFlowLines(c(basinsGA@bbox[1], basinsGA@bbox[3],
+                              30.69960,basinsGA@bbox[4]),
+                            streamorder = 4)
 
-OKflowLines <- getFlowLines(c(basinsOK@bbox[1], basinsOK@bbox[3],
-                              basinsOK@bbox[2],basinsOK@bbox[4]),
-                              streamorder = 4)
+USflowlinese <- getFlowLines(c(-124.6813, -67.007,
+                             25.1299,49.3832),
+                              streamorder = 7)
+USflow8 <- getFlowLines(c(-124.6813, -67.007,
+                               25.1299,49.3832),
+                             streamorder = 8)
+plot(USflowlinese)
 Kiam<-OKflowLines[OKflowLines@data$gnis_name=="Kiamichi River",]
 LR<-OKflowLines[OKflowLines@data$gnis_name=="Little River",]
 Mt<-OKflowLines[OKflowLines@data$gnis_name=="Mountain Fork",]
@@ -82,16 +89,54 @@ plot(oklakes, add=T, col='lightblue')
 plot(basinsOK, add=T, border='darkgrey')
 plot(OKflowLines[OKflowLines@data$gnis_name=="Red River",], add=T, col='lightgrey')
 
+require(devtools)
+devtools::install_github("dkahle/ggmap", ref = "tidyup")
+
 usa <- map_data("usa")
 states <- map_data("state")
+gatidy<-broom::tidy(GArivers)
 oktidy<-broom::tidy(OKriver)
 oklakestidy<-broom::tidy(oklakes)
-myMap <- get_map(location=OKriver@bbox,source="stamen",
-                 maptype="terrain")
-ggplot() + 
-  geom_polygon(data=states, aes(x=long, y=lat, group=group), fill=NA, color="darkgrey")+
+galakestidy<-broom::tidy(galakes)
+okbasins<-broom::tidy(basinsOK)
+gabasins<-broom::tidy(basinsGA)
+canada<-map_data("world","canada")
+mexico<-map_data("world",'mexico')
+usstreams<-broom::tidy(USflow8)
+
+bigmap<-ggplot() + 
+  geom_polygon(data=states, aes(x=long, y=lat, group=group), fill="white", color="darkgrey")+
+  geom_polygon(data=canada, aes(x=long, y=lat, group=group), fill="darkgreen", color="darkgrey")+
+  geom_polygon(data=mexico, aes(x=long, y=lat, group=group), fill="darkgreen", color="darkgrey")+
   geom_polygon(data = usa, aes(x=long, y = lat, group = group), fill=NA, color="black") +
-  coord_fixed(1.3)+theme_bw()
-ggmap(myMap)+
-  geom_path(data = oktidy, aes(x = long, y = lat, group=group))+
-  geom_polygon(data=oklakestidy, aes(x=long,y=lat,group=group), fill="black")
+  geom_polygon(data = okbasins, aes(x=long, y = lat, group = group), fill="goldenrod2", color="black") +
+  geom_polygon(data = gabasins, aes(x=long, y = lat, group = group), fill="goldenrod2", color="black") +
+  geom_path(data = usstreams, aes(x=long, y = lat, group = group), color="lightblue", 
+            size=1.3) +
+  xlab("Longitude")+ylab("Latitude")+
+  coord_map(xlim= c(-125.6813, -66.007), ylim=c(24.1299,50.3832))+theme_bw()
+okmap<-ggplot()+
+  geom_path(data = oktidy, aes(x = long, y = lat, group=group), size=1.3)+
+  geom_polygon(data=oklakestidy, aes(x=long,y=lat,group=group), fill="lightblue")+
+  geom_polygon(data=states, aes(x=long, y=lat, group=group), fill=NA, color="darkgrey")+
+  xlab("Longitude")+ylab("Latitude")+
+  coord_map(xlim=c(-95.75, -94.25),ylim=c(33.75,34.75))+theme_bw()
+gamap<-ggplot()+
+  geom_path(data = gatidy, aes(x = long, y = lat, group=group), size=1.25)+
+  geom_polygon(data=galakestidy, aes(x=long,y=lat,group=group), fill="lightblue")+
+  geom_polygon(data=states, aes(x=long, y=lat, group=group), fill=NA, color="darkgrey")+
+  xlab("Longitude")+ylab("Latitude")+
+  coord_map(xlim=c(-85.5, -83.5),ylim=c(30.5,33.5))+theme_bw()
+
+#add smaller rivers to map
+#add labels
+#add cities?
+p1<-arrangeGrob(bigmap,okmap,gamap, layout_matrix = rbind(c(1,1),c(2,3)), 
+            respect=TRUE)
+ggsave("testmap.tiff", p1)
+
+library(LifeTables)
+data(MLTobs) 
+test.mx.m <- mlt.mx[,1]
+# build the life table 
+lt.mx(nmx=test.mx.m, sex="male")

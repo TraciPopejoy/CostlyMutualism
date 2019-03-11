@@ -51,7 +51,7 @@ ggplot(mDW, aes(x=Date, y=Weight, group=Mussel))+
 
 OrigWeights<-mDW %>% group_by(Mussel) %>% filter(Date==min(Date))
 names(OrigWeights)[4]="origW"
-
+summary(OrigWeights)
 #k=(1/time)[ln(massfinal/massinitial)]
 WCdata <- mDW %>% group_by(Mussel) %>% full_join(select(OrigWeights, -Date)) %>% 
   mutate(lastW=lag(Weight, 1),
