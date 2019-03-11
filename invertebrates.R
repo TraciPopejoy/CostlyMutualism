@@ -236,7 +236,7 @@ WCinvInd<-WCinvertRaw %>%
   mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count,
          BMestDens=(BMest.mg/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
   filter(!is.na(Macro.Meio))
-WCinvX<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
+WCinv<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
   summarise(InvDen.n.perL=sum(DensityNL),
                               sumBMtrial=sum(BMestDens)) %>% 
   summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
@@ -249,16 +249,19 @@ WCinv2<-WCinv %>%
   mutate(part.treat=paste(Treatment,Macro.Meio, sep="."),
          treat.week=paste(Treatment,Week, sep="."),
          fme=factor(measurement, 
-                    levels=c("AvgDensityL.n.perL","meanBM.mg.L"),
-                    labels=c('"Invertebrates L"^-1', 
-                             '"Invertebrate Biomass mg L"^-1'))) %>% 
-  filter(Week==1|Week==2)
+                    levels=c("meanBM.mg.L","AvgDensityL.n.perL"),
+                    labels=c('"Invert. Biomass mg L"^-1',
+                             '"Invertebrates L"^-1'))) %>% 
+  filter(Week==1|Week==2) %>%
+  mutate(Day=case_when(Week=="1"~-1,
+                        Week=="2"~11),
+          Treat.F=factor(Treatment, levels=c("Control","Mussel")))
                          
 ggplot(WCinv2,
        aes(x=part.treat, y=value, fill=Treatment))+
   geom_boxplot()+facet_wrap(~Week+measurement, scales="free_y")
 mypal<-c("#0073C2","#42B4FF","#EFC000","#FFE16B")
-show_col(mypal)
+library(scales);show_col(mypal)
 wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
   stat_summary(position=position_dodge(width=.2), size=1.2)+
@@ -272,8 +275,8 @@ wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
   theme(strip.background =element_rect(fill=NA),
         strip.placement="outside")
 ggdraw(wcdots) + 
-  draw_label("A", x=.075, y=.95) + 
-  draw_label("B", x=.37, y=.95)
+  draw_label("(a)", x=.075, y=.95) + 
+  draw_label("(b)", x=.37, y=.95)
 ggsave("FishWCinvDots.tiff",dpi=300, width=7, height=3)
 
 wcnplot<-ggplot()+
@@ -319,17 +322,28 @@ WCinvX<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
             meanBM.mg.L=mean(sumBMtrial, na.rm=T)) %>%
   left_join(treat) %>% 
   select(Tank, Week, AvgDensityL.n.perL, meanBM.mg.L, Treatment) %>%
-  gather(measurement, value, -Tank, -Week, -Treatment) %>% filter(Week==1 | Week==2)
+  gather(measurement, value, -Tank, -Week, -Treatment) %>% filter(Week==1 | Week==2) %>%
+  mutate(Day=case_when(Week=="1"~-1,
+                Week=="2"~11),
+Treat.F=factor(Treatment, levels=c("Control","Mussel")))
 
 library(lmerTest)
 
-wcabund<-lmer(value~Treatment+Week+(1|Tank), data=WCinvX[WCinvX$measurement=="AvgDensityL.n.perL",])
+wcabund<-lmer(log10(value)~Treat.F+Day+(1|Tank), 
+              data=WCinvX[WCinvX$measurement=="AvgDensityL.n.perL",])
 summary(wcabund)
 anova(wcabund)
+#assumptions
+hist(residuals(wcabund),col="darkgrey") #normal distribution
+qqnorm(resid(wcabund)); qqline(resid(wcabund)) 
 
-wcbio<-lmer(value~Treatment+Week+(1|Tank), data=WCinvX[WCinvX$measurement=="meanBM.mg.L",])
+wcbio<-lmer(log10(value)~Treat.F+Day+(1|Tank),
+            data=WCinvX[WCinvX$measurement=="meanBM.mg.L",])
 summary(wcbio)
 anova(wcbio)
+#assumptions
+hist(residuals(wcbio),col="darkgrey") #normal distribution
+qqnorm(resid(wcbio)); qqline(resid(wcbio)) 
 
 WCinvMData<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
     summarise(InvDen.n.perL=sum(DensityNL),

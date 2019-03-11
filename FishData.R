@@ -110,19 +110,26 @@ InvFishBMSum<-InvBioMass %>% filter(Week==1 | Week==2) %>%
             CountDensity=Count/(3*.0103),
             AvgLength=mean(Length.mm, na.rm=T)) %>%
   mutate(Avg.BM=TotalBiomass/AvgLength,
-         Week.n=as.numeric(Week))
+         Week.n=as.numeric(Week),
+         Day=case_when(Week=="1"~-1,
+                       Week=="2"~11),
+         Treat.F=factor(Treatment, levels=c("Control","Mussel")))
 InvFishBMSum %>% group_by(Week, Treatment) %>% tally() #check we have what we need
 
-TinvBMplot<-ggplot(InvFishBMSum, aes(x=Week, y=BMDensity, fill=Treatment))+
-  geom_boxplot()+
-  scale_fill_jco(name="Tank Treatment")+
-  ylab(expression("Invertebrate Biomass g"%*%m^-2))+
+TinvBMplot<-ggplot(InvFishBMSum, 
+                   aes(x=Week, y=BMDensity, color=Treatment,group=Treatment))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
+  stat_summary(position=position_dodge(width=.2), size=1.2)+
+  scale_color_jco(name="Tank Treatment")+
+  ylab(expression("Invert. Biomass g"%*%m^-2))+
   xlab("Time")+
   scale_x_discrete(labels=c("Day -1","Day 11"))+
   theme(legend.justification=c(1,1),legend.position ="none")
 TinvCount<-ggplot(InvFishBMSum, 
-                  aes(x=Week, y=CountDensity, fill=Treatment))+
-  geom_boxplot()+scale_fill_jco(guide=F)+
+                  aes(x=Week, y=CountDensity, color=Treatment,group=Treatment))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
+  stat_summary(position=position_dodge(width=.2), size=1.2)+
+  scale_color_jco(guide=F)+
   ylab(expression("Invertebrates m"^-2))+xlab("Time")+
   scale_x_discrete(labels=c("Day -1","Day 11"))
 
@@ -132,32 +139,36 @@ InvBMslope<-InvFishBMSum %>% ungroup() %>%
 slopessss<-InvBMslope %>% left_join(treat)
 InvSlopplot<-ggplot(slopessss, 
                     aes(x=Treatment, y=InvBMrate, color=Treatment))+
-  geom_point(size=3, position="jitter")+scale_color_jco(guide=F)+
-  labs(y=expression("delta( Biomass ) g"%*%day^ -1))+
+  geom_point(size=3, position=position_jitter(.25))+scale_color_jco(guide=F)+
+  labs(y=expression(paste(Delta, "Biomass g")%*%day^ -1))+
   geom_hline(yintercept=0, lty=2) 
 library(cowplot)
 legend1<-get_legend(TinvBMplot+
                       theme(legend.position = c(.7,1.1),
                             legend.direction = "horizontal"))
-fishInvPlot<-plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = "AUTO")
+fishInvPlot<-plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = c("(a)","(b)","(c)"))
 plot_grid(fishInvPlot,legend1, nrow=2, rel_heights = c(1.1,.1))
 ggsave("FishFig1.tiff", dpi=600, width = 7, height = 3.5, units="in")
 
-InvFishBMSum<-InvFishBMSum %>% 
-  mutate(Day=case_when(Week=="1"~-1, Week=="2"~11))
 
 InvFishBMSum %>% 
   group_by(Treatment, Week) %>% 
   summarize(meanBM=mean(BMDensity),meanDen=mean(CountDensity))
 
 library(lmerTest)
-fishinv<-lmer(Count~Treatment*Week+(1|Tank), data=InvFishBMSum)
-summary(fishinv)
-anova(fishinv)
+Bcount<-lmer(log10(Count)~Treat.F+Day+(1|Tank), data=InvFishBMSum)
+summary(Bcount)
+anova(Bcount)
+#assumptions
+hist(residuals(Bcount),col="darkgrey") #normal distribution
+qqnorm(resid(Bcount)); qqline(resid(Bcount)) 
 
-fishbio<-lmer(BMDensity~Treatment*Week+(1|Tank), data=InvFishBMSum)
-summary(fishbio)
-anova(fishbio)
+Bbio<-lmer(log10(BMDensity)~Treatment+Day+(1|Tank), data=InvFishBMSum)
+summary(Bbio)
+anova(Bbio)
+#assumptions
+hist(residuals(Bbio),col="darkgrey") #normal distribution
+qqnorm(resid(Bbio)); qqline(resid(Bbio)) 
 
 ##### COX Regression #####
 #need to have a list with dataframes of time, status, and variables to consider
@@ -176,8 +187,8 @@ head(InvBMslope)
 InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>% 
   add_column(Tank=rep(sort(unique(FishSurv1$Tank)),10)) %>% arrange(Tank) %>%
   mutate(timeNumA=interval(ymd("2018-06-18"),ymd(Date)) %/% days()) %>% 
-  left_join(InvBMslope) %>% 
-  mutate(Est.I.bm=InvBMrate*timeNumA + `1`)
+  left_join(InvBMslope) %>%
+  mutate(Est.I.bm=InvBMrate*timeNumA + `1`) #G is pretty bad
 
 #bad idea to try and look at community change from 1 to 2         
 
@@ -225,8 +236,6 @@ summary(M0)
 MX<-coxph(Surv(timeNumA, status)~Tank, data=FST)
 summary(MX)
 
-
-
 FullModels<-data.frame(BIC(MX,M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
                  variables=c("Tank","Null",
                              "Treatment",
@@ -241,7 +250,7 @@ FullModels<-data.frame(BIC(MX,M0,M1,M2,M3,M4,M5,M6,M7,M8,M9,M10),
                              "Treatment * Inv BM * Infection"))
 FullModels <- FullModels %>%
   mutate(model=c("MX","M0","M1","M2","M3","M4","M5","M6","M7","M8","M9","M10"),
-         deltaBIC=BIC - min(FullModels[FullModels$model!="M0",2]),
+         deltaBIC=BIC - as.numeric(min(FullModels[FullModels$model!="M0",2])),
          rankBIC=rank(BIC)) #have to run this twice to get it to work?
 View(FullModels)
 
@@ -256,17 +265,19 @@ modelTableM<-full_join(FullModels, loglikely, by="model") %>% arrange(deltaBIC) 
   select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
 library(survminer)
 TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
-           pval = TRUE, conf.int = TRUE,
+           pval = TRUE, conf.int = F,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
            palette="jco",
+           #conf.int.alpha=0.4,
+           #conf.int.style="step",
            surv.median.line = "hv",  # Specify median survival
            legend.title="Tank Treatment",
            legend.labs=c("Control","Mussel"),
            xlab="Time (days)")
 IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
-           pval = TRUE, conf.int = TRUE,
+           pval = TRUE, conf.int = F,
            xticks.by=1,risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
@@ -274,12 +285,10 @@ IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
            surv.median.line = "hv",
            legend.title="Infection Status",
            legend.labs=c("Not Infected","Infected"),
-           xlab="Time (days)",
-         
-           ylab="")
+           xlab="Time (days)",ylab="")
 library(cowplot)
-survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = "AUTO")
-ggsave("FishFig2.tiff",survplots, dpi=300)
+survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = c("(a)","(b)"))
+ggsave("FishFig2ncf.tiff",survplots, width=7, height=3.5, dpi=300)
 
 R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
 summary(R1)
@@ -299,8 +308,10 @@ TempR<-data.frame(BIC(R0,R1,R2,R3, R4),
                              "Treatment + Infection + Temperature",
                              "Temperature",
                              "Treatment + Temperature + Inv BM",
-                             "Temperature + Inv BM")) %>%
-  mutate(model=c("R0","R1","R2","R3", "R4"), deltaBIC=BIC-min(TempR[TempR$model!="R0",2]))
+                             "Temperature + Inv BM"))
+TempR<-TempR %>%
+  mutate(model=c("R0","R1","R2","R3", "R4"), 
+         deltaBIC=BIC-min(TempR[TempR$model!="R0",2]))
 
 TempLL<-tibble(model=c("R1","R2","R3","R4")) %>%  group_by(model)%>%
   mutate(loglik=round(as.numeric(get(model)$score),2),
@@ -315,36 +326,51 @@ write.csv(mt, "modeltable1.csv")
 
 survdiff(Surv(timeNumA, status)~Treatment, data=FST)
 
+summary(M1)
+summary(M3)
+summary(M5)
+summary(R3)
+
+ggsurvplot(survfit(Surv(timeNumA, status)~InvBMrate, data=FST),
+           pval = TRUE, conf.int = F,
+           risk.table = F, # Add risk table
+           risk.table.col = "strata", # Change risk table color by groups
+           linetype = 1, # Change line type by groups
+           surv.median.line = "hv")
+
 ##### covariate table #####
 head(physchem)
 head(bigComdata)
 head(ChlSummary)
-head(InvBMSum)
+head(InvFishBMSum)
 
 covtab<-physchem %>% filter(Week==1 | Week==2) %>%
   mutate(wkc=as.character(Week)) %>% left_join(ChlSummary) %>%
-  left_join(InvBMSum, by=c("wkc"="Week","Tank","Treatment","NewTreat"))%>% left_join(bigComdata) %>%
+  left_join(InvFishBMSum, by=c("wkc"="Week","Tank","Treatment"))%>% left_join(bigComdata) %>%
   select(Treatment, Week, Tank,Temp.C, Cond.uS, DO.mgL, WaterV.mLs, WaterColChlA.ug.mL, 
          BenthicChlA.ug.cm,BMDensity,CountDensity,Richness,AvgLength.mm,
          musselBMDen,FAvgLength.mm, FishBMDen) %>% group_by(Treatment, Week)%>%
-  mutate(WaterColChlA.ug.L = WaterColChlA.ug.mL*1000) %>% select(-WaterColChlA.ug.mL) %>%
-  summarize_if(is.numeric, funs(median, IQR), na.rm=T) 
+  mutate(WaterColChlA.ug.L = WaterColChlA.ug.mL*1000) %>% select(-WaterColChlA.ug.mL)
 ###q week 1 doesn't have treatment
-write.csv(covtab, "fishcovariate.csv")
+covtab[covtab$Week=="1" & covtab$Tank=="Q","Treatment"]<-"Control"
+covtab1<-covtab %>% group_by(Treatment, Week) %>%
+  summarize_if(is.numeric, funs(mean, sd), na.rm=T) 
+write.csv(covtab1, "fishcovariate.csv")
 
-covtabFull<-physchem %>% filter(Week==1 | Week==2) %>% left_join(ChlSummary) %>% left_join(bigComdata) %>%
-  select(Treatment, Week, Tank,Temp.C, Cond.uS, DO.mgL, WaterV.mLs, WaterColChlA.ug.cm, BenthicChlA.ug.cm, AvgLength.mm,
+covtabFull<-physchem %>% filter(Week==1 | Week==2) %>% left_join(ChlSummary) %>% 
+  left_join(bigComdata) %>%
+  select(Treatment, Week, Tank,Temp.C, Cond.uS, DO.mgL, WaterV.mLs,
+         WaterColChlA.ug.L, BenthicChlA.ug.cm, AvgLength.mm,
          musselBMDen,FAvgLength.mm, FishBMDen)
-friedman.test(y~A|B)
-summary(aov(lm(Temp.C~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(Cond.uS~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(DO.mgL~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(WaterV.mLs~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(WaterColChlA.ug.L~Treatment+(1|Week), data=covtabFull))) #significant
-summary(aov(lm(BenthicChlA.ug.cm~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(FAvgLength.mm~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(FishBMDen~Treatment+(1|Week), data=covtabFull)))
-summary(aov(lm(BMDensity~Treatment+(1|Week), data=covtabFull)))
+
+summary(lmer(Temp.C~Treatment*Week+(1|Tank), data=covtabFull))#week
+summary(lmer(Cond.uS~Treatment*Week+(1|Tank), data=covtabFull))#week marginal
+summary(lmer(DO.mgL~Treatment*Week+(1|Tank), data=covtabFull))#week
+summary(lmer(WaterColChlA.ug.L~Treatment+Week+(1|Tank), data=covtabFull))
+anova(lmer(WaterColChlA.ug.L~Treatment+Week+(1|Tank), data=covtabFull))
+summary(lmer(BenthicChlA.ug.cm~Treatment+Week+(1|Tank), data=covtabFull))
+anova(lmer(BenthicChlA.ug.cm~Treatment+Week+(1|Tank), data=covtabFull))
+#treatment, week and interaction
 
 library(ggsci);library(cowplot)
 benthic<-ggplot(covtabFull, aes(x=as.character(Week), y=BenthicChlA.ug.cm, fill=Treatment))+
