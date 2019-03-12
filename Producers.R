@@ -90,10 +90,11 @@ GPP<-ggplot(Metstats,
         legend.direction = "vertical", legend.position =c(0,.8),
         legend.text = element_text(size=rel(.65)),
         legend.title= element_text(size=rel(.7)))
-ggsave("DeathFigures/Fig3.tiff", GPP, width=3.34, height= 3.34, dpi=300)
-library(cowplot) #has a default theme that I am using apparently
-bottom_row <- plot_grid(ER, GPP, labels = c('B', 'C'), align = 'h')
-plot_grid(NEP, bottom_row, labels = c('A', ''), ncol = 1, rel_heights = c(1.2,1))
+# Figure not used enough in manuscript; not including per reviewer request
+#ggsave("DeathFigures/Fig3.tiff", GPP, width=3.34, height= 3.34, dpi=300)
+#bottom_row <- plot_grid(ER, GPP, labels = c('B', 'C'), align = 'h')
+#plot_grid(NEP, bottom_row, labels = c('A', ''), ncol = 1, rel_heights = c(1.2,1))
+
 
 ##### Chlorophyll Analysis #####
 Chl<-read_excel("./data/CostMutData.xlsx",sheet = "CHL")
@@ -278,24 +279,27 @@ decomp<-cotton %>% left_join(treat) %>%
          lost.str=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
          lost.str.p=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100,
          per.lost=(1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100)/Day.decomp)
+decompG<-decomp %>% filter(!is.na(decomp$NewTreat))
 
-cottonplt<-ggplot(decomp[!is.na(decomp$NewTreat),], 
-                  aes(x=Day.decomp, y=Tensile.lbs, fill=NewTreat, color=NewTreat)) +
-  stat_summary(fun.y = mean, geom = "line")+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1))+
+cottonplt<-ggplot(decompG, 
+                  aes(x=Day.decomp, y=Tensile.lbs, 
+                      shape=NewTreat, fill=NewTreat, color=NewTreat)) +
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1), size=2)+
   ylab(expression("Gross DO Production ug "%*%L^-1)) +
   scale_fill_manual(values=col6, name="Treatment", 
                     guide=guide_legend(override.aes=list(shape=c(23,22,21))),
                     labels=c("Control", "Dead","Live"))+ 
   scale_color_manual(values=col6, name="Treatment")+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  scale_x_continuous(breaks=c(0,11,21,32), labels=c("initial",18,28,38),name="Sampling Day")+
-  scale_y_continuous(limits=c(0,70), name="Tensile Strength (lbs)")+
+  scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")+
+  scale_y_continuous(name="Tensile Strength (lbs)")+
   fronteirstheme+
   theme(legend.position = c(.25,.98), legend.direction = "horizontal")
-ggsave("DeathFigures/Fig5.tiff", cottonplt,width=3.34, height=3, dpi=300)
-mean(as.matrix(decomp[is.na(decomp$NewTreat),5]), na.rm=T)
-mean_se(as.matrix(decomp[is.na(decomp$NewTreat),5]))
+ggsave("DeathFigures/Fig4.tiff", cottonplt,width=3.34, height=3, dpi=300)
+mean_sdl(as.matrix(decomp[is.na(decomp$NewTreat),5]), mult=1)
 
 ### Decomposition Statistics
 # decomp has tank, date of experiment, day of decomp and tensile data

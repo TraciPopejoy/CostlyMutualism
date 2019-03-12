@@ -91,7 +91,8 @@ nh3filt<-ggplot(WaterNutrients,
   scale_fill_manual(values=col6,
                   guide=guide_legend(override.aes=list(shape=c(23,22,21))), 
                   name="Treatment")+
-  stat_summary(fun.y=mean,geom="point", position=position_dodge(width=1.75))+ 
+  stat_summary(fun.y=mean,geom="point", position=position_dodge(width=1.75),
+               size=2)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
   ylab(expression("NH"[3]*"-N "*mu*"g "%*%L^-1))+
@@ -108,7 +109,8 @@ srpfil<-ggplot(WaterNutrients,
   scale_y_continuous(breaks=c(25,100,200,300,400,500,600))+
   scale_color_manual(values=col6, guide=F)+
   scale_fill_manual(values=col6,guide=F)+
-  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+ 
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75),
+               size=2)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
   ylab(expression("SRP "*mu*"g "%*%L^-1))+fronteirstheme+
@@ -123,7 +125,8 @@ wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,],
   stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.75), fun.args=list(mult=1))+
-  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75),
+               size=2)+
   scale_fill_manual(values=col6,guide=F)+ 
   scale_color_manual(values=col6, guide=F)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
@@ -139,7 +142,8 @@ benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,],
   stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.75), fun.args=list(mult=1))+
-  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75),
+               size=2)+
   scale_fill_manual(values=col6, guide=F)+ 
   scale_color_manual(values=col6, guide=F)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
@@ -151,7 +155,7 @@ benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,],
 #chlplot<-plot_grid(wcchl,benchl, ncol=1, labels="")
 plot_grid(nh3filt, srpfil,wcchl,benchl, ncol=1)
 
-ggsave("DeathFigures/Fig2.tiff", width=6, height=7, dpi=300)
+ggsave("DeathFigures/Fig3.tiff", width=6, height=7, dpi=300)
 
 ##### Water Nutrients LINEAR MODELS #####
 ## models
