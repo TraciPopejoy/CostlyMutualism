@@ -1,4 +1,4 @@
-library(readxl); library(tidyverse); library(ggplot2)
+library(Hmisc);library(readxl); library(tidyverse); library(ggplot2)
 treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
 nitrogen<-read_xlsx("./data/WaterNutrients.xlsx", sheet="Ammonia") #ammonia absorbance
 #isolate nitrogen standards
@@ -69,7 +69,8 @@ WaterNutrients<-left_join(NH3WaterNuts,SRPWaterNuts) %>%
   select(-Temp.C, -Cond.uS, -DO.mgL, -WaterV.mLs, -Time, -Chl1, -Chl2, -WCFilter1,
          -FilterVolume1, -WCFilter2, -FilterVolume2) %>% #removing irrelevant columns
   ungroup()
-#### graphing water column nutrients ####
+#### graphing water column nutrients & chlorophyll ####
+library(cowplot)
 fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       axis.title.x=element_text(size=rel(.6)),
                       axis.text.y=element_text(size=rel(.6)),
@@ -80,39 +81,86 @@ fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
 #col6<-c("darkgrey","#5389a6","forestgreen") #col6 in Producers.R
 col6<-c("black","blue3","yellow3") #col6 in Producers.R
 nh3filt<-ggplot(WaterNutrients,
-                aes(x=Day, y=FilterdNH3ugL, color=NewTreat)) + 
-  stat_summary(fun.y = mean, geom = "line")+
+                aes(x=Day, y=FilterdNH3ugL, 
+                    color=NewTreat,fill=NewTreat, shape=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.75),fun.args=list(mult=1))+
   scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="")+
   scale_color_manual(values=col6, name="Treatment")+
   scale_fill_manual(values=col6,
-                  guide=guide_legend(override.aes=list(shape=c(23,22,21))), name="Treatment")+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+ 
+                  guide=guide_legend(override.aes=list(shape=c(23,22,21))), 
+                  name="Treatment")+
+  stat_summary(fun.y=mean,geom="point", position=position_dodge(width=1.75))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
   ylab(expression("NH"[3]*"-N "*mu*"g "%*%L^-1))+
-  fronteirstheme+theme(legend.background = element_rect(fill=NA),
-                       legend.position = c(0, .746),
-                       axis.title.x=element_text(size=rel(0)))
+  fronteirstheme+
+  theme(legend.position = c(0,.65),
+        axis.title.x = element_text(size=rel(0)))
 srpfil<-ggplot(WaterNutrients,
-               aes(x=Day, y=FilterdSRPugL, color=NewTreat)) + 
-  stat_summary(fun.y = mean, geom = "line")+
-  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="Sampling Day")+
-  scale_y_continuous(breaks=c(50,100,200,300,400,500,575))+
+               aes(x=Day, y=FilterdSRPugL, color=NewTreat,
+                   fill=NewTreat, shape=NewTreat)) + 
+  stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.75), fun.args=list(mult=1))+
+  scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="")+
+  scale_y_continuous(breaks=c(25,100,200,300,400,500,600))+
   scale_color_manual(values=col6, guide=F)+
   scale_fill_manual(values=col6,guide=F)+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+ 
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
-  ylab(expression("SRP "*mu*"g "%*%L^-1))+fronteirstheme
-library(cowplot)
-wnplot<-plot_grid(nh3filt, srpfil, ncol=1,labels = NULL)
-ggsave("DeathFigures/Fig2.tiff", wnplot, width=3.34, height=5, dpi=300)
+  ylab(expression("SRP "*mu*"g "%*%L^-1))+fronteirstheme+
+  theme(axis.title.x = element_text(size=rel(0)))
+#wnplot<-plot_grid(nh3filt, srpfil, ncol=1,labels = NULL)
 
-##### LINEAR MODELS #####
+#Chlorophyll
+head(ChlSummary) #found in Producers.R
+wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,], 
+              aes(x=Day, y=WaterColChlA.ug.L, 
+                  shape=NewTreat,fill=NewTreat, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.75), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+
+  scale_fill_manual(values=col6,guide=F)+ 
+  scale_color_manual(values=col6, guide=F)+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept=0, linetype="dashed")+
+  scale_y_continuous(trans="log10", breaks=c(1,3,10,30,100,300))+
+  scale_x_continuous(breaks = unique(ChlSummary$Day), name="")+
+  ylab(expression("WC Chl.a "*mu*"g "%*%L^-1))+
+  fronteirstheme+
+  theme(axis.title.x = element_text(size=rel(0)))
+benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,], 
+               aes(x=Day, y=BenthicChlA.ug.cm, 
+                   shappe=NewTreat, fill=NewTreat, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.75), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75))+
+  scale_fill_manual(values=col6, guide=F)+ 
+  scale_color_manual(values=col6, guide=F)+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  geom_vline(xintercept=0, linetype="dashed") +
+  scale_x_continuous(breaks = unique(ChlSummary$Day), name="Sampling Day")+
+  scale_y_continuous(breaks=c(0,2.5,5,7.5,10,12.5))+
+  ylab(expression("B Chl.a "*mu*"g "%*%cm^-2))+
+  fronteirstheme
+#chlplot<-plot_grid(wcchl,benchl, ncol=1, labels="")
+plot_grid(nh3filt, srpfil,wcchl,benchl, ncol=1)
+
+ggsave("DeathFigures/Fig2.tiff", width=6, height=7, dpi=300)
+
+##### Water Nutrients LINEAR MODELS #####
 ## models
 library(lme4); library(emmeans); library(lmerTest) 
 ## WaterNutrients table has a row for each tank * week and 
 ## columns of nutrient concentrations (filtered & unfiltered)
+## talk to michael about talking back to reviewers
+# get pinheiro &bates mixed effects models in s
+nrow(WaterNutrients)
 #nitrogen
 WNmodFnh3<-lmer(log10(FilterdNH3ugL)~NewTreat * Day + (1|Tank), data=WaterNutrients)
 anova(WNmodFnh3)
