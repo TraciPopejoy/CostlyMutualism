@@ -1,7 +1,6 @@
-# idk what libraries are actually in use anymore
-library(maps);library(maptools);library(calibrate);library(sp);
-library(rgdal);library(hydroMap);library(dataRetrieval); library(raster)
-library(rgeos);library(ggplot2);library(ggmap);library(mapdata)
+library(ggplot2)
+library(hydroMap);library(dataRetrieval);library(raster)
+library(maptools); library(maps)
 #usgs sites (used to grab water basins)
 OKsites<-c("07339000", "07338500","07335790","07336200","07336200")
 GAsites<- c("02357000","02353500","02354500","02350900",
