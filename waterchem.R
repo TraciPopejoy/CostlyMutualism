@@ -1,4 +1,5 @@
-library(Hmisc);library(readxl); library(tidyverse); library(ggplot2)
+library(Hmisc);library(readxl); library(ggplot2)
+library(tidyverse)
 treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
 nitrogen<-read_xlsx("./data/WaterNutrients.xlsx", sheet="Ammonia") #ammonia absorbance
 #isolate nitrogen standards
@@ -23,7 +24,7 @@ NH3WaterNuts<-NH3raw %>%
   mutate(Week=case_when(WaterType=="WCNF"~substring(Water.Sample, 10),
                         WaterType=="WCN "~substring(Water.Sample, 9,9))) %>%
   spread(WaterType, PredNH3) %>% select(-x640nm) %>% group_by(Tank, Week) %>%
-  summarize(FilterdNH3ugL=mean(`WCNF`, na.rm=T), 
+  dplyr::summarize(FilterdNH3ugL=mean(`WCNF`, na.rm=T), 
             UnFiltNH3ugL=mean(`WCN `, na.rm=T))
 
 #### phosphorus readings ####
@@ -50,7 +51,7 @@ SRPWaterNuts<-SRPraw %>%
   mutate(Week=case_when(WaterType=="WCNF"~substring(Water.Sample, 10),
                         WaterType=="WCN "~substring(Water.Sample, 9,9))) %>%
   spread(WaterType, PredSRPugL) %>% select(-x885nm) %>% group_by(Tank, Week) %>%
-  summarize(FilterdSRPugL=mean(`WCNF`, na.rm=T), 
+  dplyr::summarize(FilterdSRPugL=mean(`WCNF`, na.rm=T), 
             UnFiltSRPugL=mean(`WCN `, na.rm=T))
 #using physchem to add dates to the table
 head(physchem) #in physiochem.R script
@@ -64,11 +65,12 @@ WaterNutrients<-left_join(NH3WaterNuts,SRPWaterNuts) %>%
          Unfilt.element.ratio=UnFiltNH3ugL/UnFiltSRPugL*(30.97/14.01),
          Week.c=as.numeric(paste(Week))) %>%
   left_join(physchem, by=c("Week.c"="Week", "Tank"))%>%
-  mutate(Day=as.numeric(Date-ymd("2018-07-02"))) %>%
+  mutate(Day=as.numeric(Date-ymd("2018-07-02")),
+         logNH3=log10(FilterdNH3ugL)) %>%
   left_join(treat[,c(1,7)]) %>% filter(Week!=4) %>%
   select(-Temp.C, -Cond.uS, -DO.mgL, -WaterV.mLs, -Time, -Chl1, -Chl2, -WCFilter1,
          -FilterVolume1, -WCFilter2, -FilterVolume2) %>% #removing irrelevant columns
-  ungroup()
+  ungroup() %>% mutate(TankF=as.factor(Tank))
 #### graphing water column nutrients & chlorophyll ####
 library(cowplot)
 fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
@@ -166,17 +168,24 @@ library(lme4); library(emmeans); library(lmerTest)
 # get pinheiro &bates mixed effects models in s
 nrow(WaterNutrients)
 #nitrogen
-WNmodFnh3<-lmer(log10(FilterdNH3ugL)~NewTreat * Day + (1|Tank), data=WaterNutrients)
+WNmodFnh3R<-lmer(FilterdNH3ugL ~ NewTreat * Day +(1|Tank), data=WaterNutrients)
+ranova(WNmodFnh3R) #Tank not significant
+ggplot(WaterNutrients, aes(x=Day, y=FilterdNH3ugL, group=Tank, color=NewTreat))+
+  geom_line()
+WNmodFnh3<-lm(FilterdNH3ugL ~ NewTreat * Day, data=WaterNutrients)
 anova(WNmodFnh3)
 summary(WNmodFnh3)
 
-WNfNh<-emmeans(WNmodFnh3, pairwise~NewTreat, adjust="tukey")
+WNfNh<-emmeans(WNmodFnh3, pairwise~NewTreat*Day, adjust="tukey")
 CLD(WNfNh, alpha=.05, Letters=letters, adjust="tukey")
 
 #phosphorus
-WNmodFsrp<-lmer(FilterdSRPugL~NewTreat * Day + (1|Tank), data=WaterNutrients)
+WNmodFsrp<-lmer(FilterdSRPugL ~ NewTreat * Day + (1|TankF), data=WaterNutrients)
 anova(WNmodFsrp)
-summary(WNmodFsrp)
+lme4::summary(WNmodFsrp)
+
+WNsrpT<-emmeans(WNmodFsrp, pairwise~NewTreat*Day, adjust="tukey")
+CLD(WNsrpT, alpha=.05, Letters=letters, adjust="tukey")
 
 ##### assumptions
 #nitrogen
@@ -187,3 +196,38 @@ qqnorm(resid(WNmodFnh3)); qqline(resid(WNmodFnh3)) #large values poorly predicte
 hist(residuals(WNmodFnh3),col="darkgrey") #normal distribution?
 plot(fitted(WNmodFsrp), residuals(WNmodFsrp)) #heteroscadastic
 qqnorm(resid(WNmodFsrp)); qqline(resid(WNmodFsrp))
+
+
+WaterNutrients %>% group_by(NewTreat, Tank,Day) %>%
+  filter(Day==-3|Day==39) %>%
+  select(Tank, FilterdSRPugL) %>%
+  spread(Day, FilterdSRPugL) %>%
+  summarise_if(is.numeric, mean, is.na=F) %>%
+  mutate(PerDif=((`39`-`-3`)/`-3`)*100,
+         rawDif=`39`-`-3`) %>%
+  group_by(NewTreat)%>% select(-Tank)%>% 
+  summarise_all(mean)
+
+##### importance of nutrient release
+## This Paper
+# NH3 ug m-2 - multiplied by L in tank
+mean(c(100, 135, 120))*635 #75141.7
+# SRP ug m-2 - multiplied by L in tank
+mean(c(125,160,150))*635 #92075
+#approximate volume of water in mesocosms
+.35* (.76^2)*pi *1000 #in L (946 max)
+
+## Atkinson et al. 2018 
+# Nitrogen mg m-2 h-1
+mean(c(1.3, 6, 5.8, 1.6, 2, 3.9, 5, 3.6))
+
+3.65*1000 #um m-2 h-1
+75141/3650
+# Phosphorus mg m-2 h-1
+mean(c(.3, .6, .7, .2, .3,.6, .7, .2, .6))
+.47*1000 #um m-2 h-1
+92075/470
+## Wegner et al 2018
+# P release from mussel shells to be 0.05 g m−2 y−1.
+0.05*1e6/365 #ug P m-2 day-1
+92075/137

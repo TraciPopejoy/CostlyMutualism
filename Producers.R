@@ -14,7 +14,7 @@ MetC<-Met %>% mutate(NEPtime=Stime-Ftime,
 MetDO<- Met %>% left_join(treat, by="Tank") %>%
   mutate(Date=as.Date(Ftime))
 
-Metstats<-MetC %>% group_by(Tank, Date) %>% summarize(meanNEP=mean(NEPhr),
+Metstats<-MetC %>% group_by(Tank, Date) %>% dplyr::summarize(meanNEP=mean(NEPhr),
                                                 meanER=mean(ERhr),
                                                 meanGPP=mean(GPPhr)) %>%
   full_join(treat, by="Tank") %>%
@@ -45,7 +45,7 @@ Met1<-lmer(meanGPP~NewTreat * Day + (1|Tank), data=Metstats, REML=F)
 anova(Met1)
 summary(Met1)
 
-Metlsd1<-emmeans(Met1, pairwise~NewTreat, adjust="tukey")
+Metlsd1<-emmeans(Met1, pairwise~NewTreat*Day)
 CLD(Metlsd1, alpha=.05, Letters=letters, adjust="tukey")
 
 ##### assumptions
@@ -110,7 +110,7 @@ KeyTile<-physchem %>% select(Date, Tank, Chl1, Chl2) %>%
 ChlTile<-Chl %>% inner_join(KeyTile) %>% 
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/discA)*1) %>%
   select(-Notes) %>% group_by(Tank, Date) %>% 
-  summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
+  dplyr::summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
             Compartment="Benthic") %>%
   left_join(treat)
 
@@ -126,7 +126,7 @@ ChlFilter<-Chl %>% inner_join(KeyFil, by=c("ChlSample"="WCFilter1")) %>%
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/FilterVolume1)*1) %>%
   select(-Notes)%>%
   group_by(Tank, Date) %>% 
-  summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
+  dplyr::summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
             Compartment="Water Column")
 
 # joining benthic and water column samples into one table
@@ -153,6 +153,7 @@ Wchl1<-lmer(log10(WaterColChlA.ug.L)~ NewTreat * Day + (1|Tank), data=ChlSummary
 anova(Wchl1)
 summary(Wchl1)
 ranova(Wchl1)
+
 #assumptions
 hist(residuals(Wchl1),col="darkgrey") #normally distibuted?
 plot(fitted(Wchl1), residuals(Wchl1)) #heteroscadastic?
@@ -279,7 +280,8 @@ decomp<-cotton %>% left_join(treat) %>%
          lost.str=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
          lost.str.p=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100,
          per.lost=(1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100)/Day.decomp)
-decompG<-decomp %>% filter(!is.na(decomp$NewTreat))
+decompG<-decomp %>% filter(!is.na(decomp$NewTreat)) %>%
+  mutate(NTF=factor(NewTreat))
 
 cottonplt<-ggplot(decompG, 
                   aes(x=Day.decomp, y=Tensile.lbs, 
@@ -306,12 +308,13 @@ mean_sdl(as.matrix(decomp[is.na(decomp$NewTreat),5]), mult=1)
 # control strips were treated like other strips to account for natural variation 
 # in strip tensile strength, but were not placed in any streams
 # thus we excluded them from the statistics
-dc1<-lmer(og.lost~NewTreat * Day.decomp + (1|Tank), 
-          data=decomp[decomp$Tank!="CTRL",], REML=F)
+dc1<-lmer(Tensile.lbs~ NTF * Day.decomp + (1|Tank), 
+          data=decompG, REML=F)
 anova(dc1)
 summary(dc1)
+confint(dc1)
 
-dc1st<-emmeans(dc1, pairwise~NewTreat, adjust="tukey")
+dc1st<-emmeans(dc1, pairwise~NTF:Day.decomp, adjust="tukey")
 CLD(dc1st, alpha=.05, Letters=letters, adjust="tukey")
 
 ggplot(decomp, aes(x=Day.decomp, y=og.lost, fill=NewTreat)) +
