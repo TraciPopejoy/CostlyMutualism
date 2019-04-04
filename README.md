@@ -7,11 +7,11 @@ Fish passed from too much stress. So to not have stressed mussels with no scient
 Scripts:
 Producers.R has code to format and analyze ecosystem metabolism, chlorophyll abundances, ash free dry mass. 
 
-FishData.R has code to address fish weight, length, and survival.
+FishData.R has code to address fish weight, length, and survival. It also includes analysis of invertebrate samples from this time too. Might need to source invertebrates.R or atleast run the start of the code.
 
 invertebrates.R has code to evalutate macroinvertebrate abundance, biomass, and community composition.
 
-physiochem.R has code from hobo temperature loggers and physical-chemical parameters collected during the experiment.
+physiochem.R has code from hobo temperature loggers and physical-chemical parameters collected during the experiment. It also contians physchem, which was a key organizing data frame.
 
 MusselLost.R describes the community with the tanks, mussel soft tissue decay, and mussel biomass estimation.
 

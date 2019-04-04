@@ -49,11 +49,22 @@ ggplot(watertempGood, aes(x=GoodDate, y=GoodTC, color=Tank))+
 
 library(darksky)
 airTemp<-seq(ymd("2018-06-18"), ymd("2018-08-10"), "1 day") %>%
-map(~get_forecast_for(33.9987, -96.7197, .x)) %>% 
-  map_df("hourly")
+  purrr::map(~get_forecast_for(33.9987, -96.7197, .x)) %>% 
+  purrr::map_df("hourly")
 airTemp$TempC<-(airTemp$temperature-32)*.5556
 airTemp$TimeCST<-airTemp$time-18000
 
+ggplot(airTemp, aes(x=TimeCST, y=temperature))+
+  geom_line()+
+  geom_vline(xintercept = ymd_hms("2018-07-02 12:00:00"), 
+             linetype=2)+
+  geom_vline(xintercept = ymd_hms("2018-07-06 12:00:00"), 
+             color="red", alpha=.3, size=2)+
+  geom_vline(xintercept = ymd_hms("2018-07-13 12:00:00"), 
+             color="red", alpha=.3, size=2)+
+  geom_vline(xintercept = ymd_hms("2018-07-27 12:00:00"), 
+             color="red", alpha=.3, size=2)
+  
 
 library(readxl)
 physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")

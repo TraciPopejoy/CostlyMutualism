@@ -20,12 +20,12 @@ Metstats<-MetC %>% group_by(Tank, Date) %>% dplyr::summarize(meanNEP=mean(NEPhr)
   full_join(treat, by="Tank") %>%
   mutate(DatF=format(Date, format="%b-%d"),
          Day=as.numeric(Date-ymd("2018-07-02"))) %>% 
-  select(-Treatment, -nLiveMussels,-Notes, -InfectionRound, -Excretion) %>%
+  dplyr::select(-Treatment, -nLiveMussels,-Notes, -InfectionRound, -Excretion) %>%
   ungroup()
 
-Metgraph<-Metstats %>% select(Tank,Date,meanNEP,meanER,meanGPP) %>% 
+Metgraph<-Metstats %>% dplyr::select(Tank,Date,meanNEP,meanER,meanGPP) %>% 
   gather(variable, value,-Tank,-Date) %>% full_join(treat) %>% 
-  select(NewTreat, Tank, Date, variable, value)
+  dplyr::select(NewTreat, Tank, Date, variable, value)
 
 ### "per unit surface area per unit time"
 ### GPP is mg/L per surface area per hour
@@ -41,7 +41,10 @@ library(car); library(lme4); library(lmerTest);library(emmeans)
 # Metstats dataframe has tank, date, treatment, and metabolism metrics
 # 3 treatments, 4 sampling days over 18 tanks
 nrow(Metstats)
+Met0<-lmer(meanGPP~(1|Tank), data=Metstats, REML=F)
 Met1<-lmer(meanGPP~NewTreat * Day + (1|Tank), data=Metstats, REML=F)
+devMet<-allFit(Met1)
+summary(devMet)
 anova(Met1)
 summary(Met1)
 
@@ -75,21 +78,24 @@ col6<-c("black","blue3","yellow3")
 GPP<-ggplot(Metstats, 
             aes(x=Day,y=meanGPP, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.75), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point",
+               aes( shape=NewTreat), position=position_dodge(width=1.75),
+               size=3)+
   ylab(expression("Gross DO Production mg "%*%cm^-2*" hr"^-1)) +
   scale_fill_manual(values=col6, name="Treatment", 
                     guide=guide_legend(override.aes=list(shape=c(23,22,21))))+ 
   scale_color_manual(values=col6, name="Treatment")+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+
-  fronteirstheme+
-  theme(axis.title.y=element_text(size=rel(.7)),
-        axis.title.x=element_text(size=rel(.7)),
-        axis.text.y=element_text(size=rel(.7)),
-        axis.text.x=element_text(size=rel(.7)),
-        legend.direction = "vertical", legend.position =c(0,.8),
-        legend.text = element_text(size=rel(.65)),
-        legend.title= element_text(size=rel(.7)))
+  theme(#axis.title.y=element_text(size=rel(.7)),
+        #axis.title.x=element_text(size=rel(.7)),
+        #axis.text.y=element_text(size=rel(.7)),
+        #axis.text.x=element_text(size=rel(.7)),
+        legend.direction = "vertical", legend.position =c(0,.8))
+        #legend.text = element_text(size=rel(.65)),
+        #legend.title= element_text(size=rel(.7)))
 # Figure not used enough in manuscript; not including per reviewer request
 #ggsave("DeathFigures/Fig3.tiff", GPP, width=3.34, height= 3.34, dpi=300)
 #bottom_row <- plot_grid(ER, GPP, labels = c('B', 'C'), align = 'h')
@@ -144,12 +150,13 @@ ChlSummary[ChlSummary$Tank=="Q" & ChlSummary$Date==ymd("2018-06-17"),5:6]<-"Cont
 
 ##### graphing chlorophyll concentration found in waterchem.R
 
-#### Chlorophy statistics
+#### Chlorophyll statistics
 library(car);library(lme4);library(lmerTest);library(emmeans)
 # ChlSummary has tank, date, and water column and benthic chlorophyl concentrations
 nrow(ChlSummary)
 #watercolumn
 Wchl1<-lmer(log10(WaterColChlA.ug.L)~ NewTreat * Day + (1|Tank), data=ChlSummary, REML=F)
+devWChl<-allFit(Wchl1)
 anova(Wchl1)
 summary(Wchl1)
 ranova(Wchl1)
@@ -292,14 +299,17 @@ cottonplt<-ggplot(decompG,
   stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1), size=2)+
   ylab(expression("Gross DO Production ug "%*%L^-1)) +
   scale_fill_manual(values=col6, name="Treatment", 
-                    guide=guide_legend(override.aes=list(shape=c(23,22,21))),
-                    labels=c("Control", "Dead","Live"))+ 
-  scale_color_manual(values=col6, name="Treatment")+ 
+                    labels=c("Control", "Dead Mussels","Live Mussels"))+ 
+  scale_color_manual(values=col6, name="Treatment",
+                     guide=guide_legend(override.aes=list(shape=c(23,22,21))),
+                     labels=c("Control", "Dead Mussels","Live Mussels"))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")+
   scale_y_continuous(name="Tensile Strength (lbs)")+
   fronteirstheme+
-  theme(legend.position = c(.25,.98), legend.direction = "horizontal")
+  #theme(legend.position = c(0.05,.99), legend.direction = "horizontal",
+  theme(legend.position = c(0.07,.2), legend.direction = "vertical",
+        axis.text.x=element_text(size=rel(.6)))
 ggsave("DeathFigures/Fig4.tiff", cottonplt,width=3.34, height=3, dpi=300)
 mean_sdl(as.matrix(decomp[is.na(decomp$NewTreat),5]), mult=1)
 

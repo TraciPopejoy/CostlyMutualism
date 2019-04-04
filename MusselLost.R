@@ -23,7 +23,7 @@ MusselCom <- MusselRaw %>% group_by(Tank) %>%
             AvgBM=round(mean(BME, na.rm=T),1), 
             sumBM=round(sum(BME, na.rm=T),1),
             musselNDen=round(n/pi*(1.8288/2)^2,2),
-            musselBMDen=round(sumBM/pi*(1.8288/2)^2,1)) %>% select(-n,-musselNDen)
+            musselBMDen=round(sumBM/pi*(1.8288/2)^2,1))
 FishCom<- FishData %>% group_by(Tank) %>% 
   summarise(n=n(), FAvgLength.mm=round(mean(StandLength.mm, na.rm=T),0), 
             FAvgBM=round(mean(Weight.g, na.rm=T),1), 

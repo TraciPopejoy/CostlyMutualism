@@ -89,10 +89,10 @@ nh3filt<-ggplot(WaterNutrients,
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.75),fun.args=list(mult=1))+
   scale_x_continuous(breaks = sort(unique(WaterNutrients$Day)), name="")+
-  scale_color_manual(values=col6, name="Treatment")+
+  scale_color_manual(values=col6, name="Treatment", labels=c("Control","Dead Mussels","Live Mussels"))+
   scale_fill_manual(values=col6,
                   guide=guide_legend(override.aes=list(shape=c(23,22,21))), 
-                  name="Treatment")+
+                  name="Treatment", labels=c("Control","Dead Mussels","Live Mussels"))+
   stat_summary(fun.y=mean,geom="point", position=position_dodge(width=1.75),
                size=2)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
@@ -169,6 +169,7 @@ library(lme4); library(emmeans); library(lmerTest)
 nrow(WaterNutrients)
 #nitrogen
 WNmodFnh3R<-lmer(FilterdNH3ugL ~ NewTreat * Day +(1|Tank), data=WaterNutrients)
+devWNH3Tanks<-allFit(WNmodFnh3R)
 ranova(WNmodFnh3R) #Tank not significant
 ggplot(WaterNutrients, aes(x=Day, y=FilterdNH3ugL, group=Tank, color=NewTreat))+
   geom_line()

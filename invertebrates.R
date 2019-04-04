@@ -49,38 +49,59 @@ InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
   rowwise() %>%
   mutate(BM=biomass(Family,Order, Length.mm), 
          TotalBM=Count*BM)
+InvBioMass %>% group_by(NewTreat, Week) %>%
+  dplyr::summarise(mean(BM, na.rm=T))
+  
+
 library(lubridate)
 InvBMSum<-InvBioMass %>% 
   group_by(TxW, Tank, Week, NewTreat, Treatment) %>% 
-    summarize(TotalBiomass=sum(TotalBM, na.rm=T)/1000,
+    dplyr::summarize(TotalBiomass=sum(TotalBM, na.rm=T)/1000,
               Richness=length(unique(Taxa)),
               Count=sum(Count, na.omit=T),
               BMDensity=TotalBiomass/(3*.0103),
               CountDensity=Count/(3*.0103),
               AvgLength=mean(Length.mm, na.rm=T)) %>%
   mutate(Avg.BM=TotalBiomass/AvgLength,
-         Date=case_when(Week==0~ymd("2018-06-12"),
-                        Week==1~ymd("2018-06-18"),
-                        Week==2~ymd("2018-06-29"),
-                        Week==3~ymd("2018-07-06"),
-                        Week==4~ymd("2018-07-13")))
+         Date=case_when(Week==0~-20,
+                        Week==1~-15,
+                        Week==2~-3,
+                        Week==3~4,
+                        Week==4~11))
 InvBMSum %>% group_by(Week, NewTreat) %>% tally() %>% spread(Week,n)
 #write_excel_csv(InvBMSum, "DeathInvertebrate1025.xls")
 
-ggplot(InvBMSum[InvBMSum$Week!=0,], 
+invBMP<-ggplot(InvBMSum[InvBMSum$Week!=0,], 
        aes(x=Date, y=BMDensity, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), 
-               position=position_dodge(width=1.5))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.5), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.5),
+               size=3)+
+  scale_color_manual(values=col6, guide=F)+
+  scale_fill_manual(values=col6, guide=F)+
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  scale_x_continuous(name="Sampling Day", breaks= c(-15,-3,0,4,11))+
   ylab(expression("Invertebrate Biomass mg "%*%m^-2))+
-  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
-ggplot(InvBMSum[InvBMSum$Week!=0,], 
+  geom_vline(xintercept=0)
+invCP<-ggplot(InvBMSum[InvBMSum$Week!=0,], 
        aes(x=Date, y=CountDensity, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), 
-               position=position_dodge(width=1.5))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1.5), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.5),
+               size=3)+
   ylab(expression("Invertebrates "%*%m^-2))+
-  geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
+  scale_color_manual(values=col6, name="Treatment", 
+                     labels=c("Control","Dead Mussels","Live Mussels"))+
+  scale_fill_manual(values=col6, guide=guide_legend(override.aes=list(shape=c(23,22,21))), 
+                    name="Treatment", labels=c("Control","Dead Mussels","Live Mussels"))+
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  scale_x_continuous(name="Sampling Day", breaks= c(-15,-3,0,4,11))+
+  geom_vline(xintercept=0)+
+  theme(legend.position = c(0.01,.85))
+plot_grid(invCP, invBMP, nrow=1)
+ggsave("./Figures/invertCM.tiff", width=4, height=8)
 ggplot(InvBMSum[InvBMSum$Week!=0,], 
        aes(x=Date, y=Richness, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
@@ -151,7 +172,7 @@ nmdstheme<-theme_bw() +
         panel.grid.major = element_blank(),  #remove major-grid labels
         panel.grid.minor = element_blank(),  #remove minor-grid labels
         plot.background = element_blank())
-
+library(ggsci)
 ctrlnmds<-ggplot() + 
   geom_polygon(data=hull.data.both[hull.data.both$grp=="Control",],
                aes(x=NMDS1,y=NMDS2,fill=grptime,group=grptime),alpha=0.20) + # add the convex hulls
@@ -185,16 +206,18 @@ spnmds<-ggplot() +
         legend.title= element_text(size=rel(.7)),
         legend.background = element_rect(fill=alpha(0.1)))
 library(cowplot);library(ggsci)
-plot_grid(ctrlnmds,livenmds,deadnmds,spnmds, labels=c("Control","Live","Dead", ""))
-ggsave("./Figures/NMDSwhole.png")
+library(gridExtra)
+grid.arrange(spnmds, ctrlnmds, livenmds, deadnmds, 
+            layout_matrix= rbind(c(1,1,1),c(2,3,4)))
+treat<-plot_grid(ctrlnmds,livenmds,deadnmds, nrow=1)
+plot_grid(spnmds, treat, ncol=1)
+#plot_grid(ctrlnmds,livenmds,deadnmds,spnmds, labels=c("Control","Live","Dead", ""))
+ggsave("./Figures/NMDSwhole.png", width=7, height=7)
 
 #exploring differences in life stages
 IBMlifestage<-InvBioMass %>% filter(Macro.Meio=="macro" & !is.na(LifeStage)) %>%
   group_by(Tank, Week, TxW, NewTreat, LifeStage) %>%
   summarize(LSTotal=sum(Count))
-ggplot(IBMlifestage,aes(x=Tank,y=LSTotal, fill=LifeStage))+
-  geom_bar(stat="identity")+facet_wrap(~Week+NewTreat, scales="free_x")+
-  theme_bw()
 ggplot(IBMlifestage[IBMlifestage$LifeStage=="pupa",], 
        aes(x=Week, y=LSTotal, color=NewTreat))+
   geom_boxplot(aes(group=interaction(Week, NewTreat)))+
@@ -202,22 +225,32 @@ ggplot(IBMlifestage[IBMlifestage$LifeStage=="pupa",],
   #stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
   #stat_summary(aes(fill=NewTreat, shape=NewTreat), 
   #             position=position_dodge(width=1.5))+
-  ylab("Invertebrate Count")+
+  ylab("Pupa Count")+
   geom_vline(xintercept=ymd("2018-07-02"))+theme_bw()
 
 #exploring Order composition
 IBMorder<-InvBioMass %>% filter(Macro.Meio=="macro" & Week !=0) %>%
   group_by(Tank, Week, TxW, NewTreat, Order) %>%
-  summarize(OTotal=sum(Count))
-ggplot(IBMorder[IBMorder$NewTreat=="Dead",],aes(x=Tank,y=OTotal, fill=Order))+
-  geom_bar(stat="identity")+facet_wrap(~Week)+
-  theme_bw()
-ggplot(IBMorder[IBMorder$NewTreat=="Live",],aes(x=Tank,y=OTotal, fill=Order))+
-  geom_bar(stat="identity")+facet_wrap(~Week)+
-  theme_bw()
-ggplot(IBMorder[IBMorder$NewTreat=="Control",],aes(x=Tank,y=OTotal, fill=Order))+
-  geom_bar(stat="identity")+facet_wrap(~Week)+
-  theme_bw()
+  summarize(OTotal=sum(Count)) %>% left_join(InvBMSum)%>%
+  mutate(OrelA=OTotal/Count*100,
+         Date=case_when(Week==1~-15,
+                        Week==2~-3,
+                        Week==3~4,
+                        Week==4~11))%>%
+  filter(OrelA>7, Order!="Trichoptera") %>%
+  select(Tank, Week, TxW, NewTreat, Order,OrelA, Date) 
+ggplot(IBMorder,aes(x=Date,y=OrelA, color=Order, fill=Order, shape=Order))+
+  stat_summary(position=position_dodge(width=1.5))+
+  geom_vline(xintercept = 0, linetype="dashed")+
+  scale_y_continuous(name="Order Relative Abundance",
+                     breaks=c(0,20,40,60,80,100),
+                     labels=c("0%","20%","40%","60%","80%","100%"))+
+  scale_color_manual(values = c("darkred","#c5693c","#a4a934","#6796ca",
+                                 "#8867d0","#c060a6","lightgrey"))+
+  scale_x_continuous(name="Sampling Day",
+                     breaks=c(-15, -3,0,4,11))+
+  scale_shape_manual(values=c(15:18,15:17))+
+  facet_wrap(~NewTreat, dir="v")
 
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
