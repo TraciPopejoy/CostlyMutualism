@@ -77,20 +77,20 @@ invBMP<-ggplot(InvBMSum[InvBMSum$Week!=0,],
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.5), fun.args=list(mult=1))+
   stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.5),
-               size=3)+
+               size=4)+
   scale_color_manual(values=col6, guide=F)+
   scale_fill_manual(values=col6, guide=F)+
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   scale_x_continuous(name="Sampling Day", breaks= c(-15,-3,0,4,11))+
   ylab(expression("Invertebrate Biomass mg "%*%m^-2))+
-  geom_vline(xintercept=0)
+  geom_vline(xintercept=0)+ppt
 invCP<-ggplot(InvBMSum[InvBMSum$Week!=0,], 
        aes(x=Date, y=CountDensity, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1.5))+
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.5), fun.args=list(mult=1))+
   stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.5),
-               size=3)+
+               size=4)+
   ylab(expression("Invertebrates "%*%m^-2))+
   scale_color_manual(values=col6, name="Treatment", 
                      labels=c("Control","Dead Mussels","Live Mussels"))+
@@ -99,7 +99,7 @@ invCP<-ggplot(InvBMSum[InvBMSum$Week!=0,],
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   scale_x_continuous(name="Sampling Day", breaks= c(-15,-3,0,4,11))+
   geom_vline(xintercept=0)+
-  theme(legend.position = c(0.01,.85))
+  theme(legend.position = c(0.01,.85))+ppt
 plot_grid(invCP, invBMP, nrow=1)
 ggsave("./Figures/invertCM.tiff", width=4, height=8)
 ggplot(InvBMSum[InvBMSum$Week!=0,], 
@@ -240,7 +240,7 @@ IBMorder<-InvBioMass %>% filter(Macro.Meio=="macro" & Week !=0) %>%
   filter(OrelA>7, Order!="Trichoptera") %>%
   select(Tank, Week, TxW, NewTreat, Order,OrelA, Date) 
 ggplot(IBMorder,aes(x=Date,y=OrelA, color=Order, fill=Order, shape=Order))+
-  stat_summary(position=position_dodge(width=1.5))+
+  stat_summary(position=position_dodge(width=1.8), size=1)+
   geom_vline(xintercept = 0, linetype="dashed")+
   scale_y_continuous(name="Order Relative Abundance",
                      breaks=c(0,20,40,60,80,100),
@@ -250,7 +250,7 @@ ggplot(IBMorder,aes(x=Date,y=OrelA, color=Order, fill=Order, shape=Order))+
   scale_x_continuous(name="Sampling Day",
                      breaks=c(-15, -3,0,4,11))+
   scale_shape_manual(values=c(15:18,15:17))+
-  facet_wrap(~NewTreat, dir="v")
+  facet_wrap(~NewTreat, dir="v")+ppt
 
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
@@ -269,7 +269,14 @@ WCinvInd<-WCinvertRaw %>%
   mutate(BMest.mg=mean(biomass(Family, Order, Size.mm))*Count,
          BMestDens=(BMest.mg/VolSampled * VolTotal/VolumePull)/1e-6) %>% 
   filter(!is.na(Macro.Meio))
-WCinv<- WCinvInd %>% group_by(Tank, Week, Macro.Meio, Sample) %>%
+WCinvInd %>% group_by(Taxa) %>% 
+  summarize(sumC=sum(Count),meanSize=mean(Size.mm), maxS=max(Size.mm)) %>%
+  arrange(desc(sumC))
+WCinv<- WCinvInd %>% 
+# DON'T ACCIDENTALLY LEAVE THIS IN #
+  filter(Taxa!="ChironomidaeL",Taxa!="Polycentropidae") %>%
+  ##
+  group_by(Tank, Week, Macro.Meio, Sample) %>%
   summarise(InvDen.n.perL=sum(DensityNL),
                               sumBMtrial=sum(BMestDens)) %>% 
   summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),
@@ -282,35 +289,52 @@ WCinv2<-WCinv %>%
   mutate(part.treat=paste(Treatment,Macro.Meio, sep="."),
          treat.week=paste(Treatment,Week, sep="."),
          fme=factor(measurement, 
-                    levels=c("meanBM.mg.L","AvgDensityL.n.perL"),
-                    labels=c('"Invert. Biomass mg L"^-1',
-                             '"Invertebrates L"^-1'))) %>% 
+                    levels=c("AvgDensityL.n.perL","meanBM.mg.L"),
+                    labels=c('"Invertebrates # L"^-1',
+                             '"Invert. biomass mg L"^-1'))) %>% 
   filter(Week==1|Week==2) %>%
   mutate(Day=case_when(Week=="1"~-1,
                         Week=="2"~11),
-          Treat.F=factor(Treatment, levels=c("Control","Mussel")))
-                         
-ggplot(WCinv2,
-       aes(x=part.treat, y=value, fill=Treatment))+
-  geom_boxplot()+facet_wrap(~Week+measurement, scales="free_y")
-mypal<-c("#0073C2","#42B4FF","#EFC000","#FFE16B")
-library(scales);show_col(mypal)
-wcdots<-ggplot(WCinv2, aes(x=Week,y=value, color=part.treat, group=part.treat))+
-  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
-  stat_summary(position=position_dodge(width=.2), size=1.2)+
-  scale_y_continuous(name="")+
-  scale_x_continuous(name="Sampling Day",breaks=c(1,2),labels=c("Day -1", "Day 11"))+
-  scale_color_manual(values=mypal, name="Treatment-\nInvertebrate Size", 
-                    labels=c("Control-macrofauna   ","Control-meiofauna   ",
-                             "Mussel-macrofauna","Mussel-meiofauna"))+
+          Treat.F=factor(Treatment, levels=c("Control","Mussel")),
+         Day.chr=as.character((Day)))
+                  
+#mypal<-c("#0073C2","#42B4FF","#EFC000","#FFE16B")
+#library(scales);show_col(mypal)
+wcdots<-ggplot(WCinv2, aes(x=Day.chr,y=value,shape=part.treat,
+                           fill=part.treat, group=part.treat))+
+  stat_summary(fun.y = mean, geom = "line",
+               position=position_dodge(width=.4),
+               size=1.2,aes(color=part.treat))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=.4), fun.args=list(mult=1),
+               size=1.2,aes(color=part.treat))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=.4),
+               size=3)+
+  scale_y_continuous(name="")+scale_x_discrete(name="")+
+  scale_fill_manual(values=c("black","white","grey","white"), 
+                    name="Treatment-\nInvertebrate Size", 
+                    labels=c("Control-Chaoborus","Control-zooplankton",
+                             "Mussel-Chaoborus","Mussel-zooplankton"))+
+  scale_color_manual(values=c("black","black","grey","grey"), 
+                    name="Treatment-\nInvertebrate Size", 
+                    labels=c("Control-Chaoborus","Control-zooplankton",
+                             "Mussel-Chaoborus","Mussel-zooplankton"))+
+  scale_shape_manual(values=c(21,21,24,24), name="Treatment-\nInvertebrate Size", 
+                     labels=c("Control-Chaoborus","Control-zooplankton",
+                              "Mussel-Chaoborus","Mussel-zooplankton"))+
   facet_wrap(~fme, scales="free_y", strip.position="left", 
              labeller = label_parsed)+
+  guides(fill=guide_legend(ncol=2))+
   theme(strip.background =element_rect(fill=NA),
-        strip.placement="outside")
+        strip.placement="outside",
+        #panel.spacing = unit(1.5, "lines"),
+        legend.position ="bottom")
 ggdraw(wcdots) + 
   draw_label("(a)", x=.075, y=.95) + 
-  draw_label("(b)", x=.37, y=.95)
-ggsave("FishWCinvDots.tiff",dpi=300, width=7, height=3)
+  draw_label("(b)", x=.555, y=.95) +
+  draw_label("Day", x=.34, y=.3) +
+  draw_label("Day", x=.8, y=.3)
+ggsave("FishWCinvDotsalt.tiff",dpi=300, width=7, height=3.7)
 
 wcnplot<-ggplot()+
   geom_boxplot(data=WCinv2[WCinv2$Macro.Meio=="meio" & WCinv2$measurement=="AvgDensityL.n.perL",],
@@ -348,7 +372,11 @@ prow<-plot_grid(wcnplot,wcbmplot, labels="AUTO")
 plot_grid(prow,legend, nrow=2, rel_heights = c(1,.12))
 ggsave("FishWCinv.tiff", dpi=300, width=6, height=3.8)
 
-WCinvX<- WCinvInd %>% group_by(Tank, Week, Sample) %>%
+WCinvX<- WCinvInd %>% 
+  # DON'T ACCIDENTALLY LEAVE THIS IN #
+  filter(Taxa!="ChironomidaeL",Taxa!="Polycentropidae") %>%
+  ##
+  group_by(Tank, Week, Sample) %>%
   summarise(InvDen.n.perL=sum(DensityNL),
             sumBMtrial=sum(BMestDens)) %>% 
   summarise(AvgDensityL.n.perL=mean(InvDen.n.perL, na.rm=T),

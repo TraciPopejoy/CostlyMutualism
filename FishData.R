@@ -1,6 +1,5 @@
 library(readxl)
 fish<-read_excel("./data/CostMutData.xlsx", sheet="FishData")
-
 treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
 library(tidyverse)
 library(lubridate)
@@ -32,7 +31,6 @@ Infectiondata<-FishData %>% filter(Infected=="Y") %>% group_by(InfectionRound) %
             meanSurvival=mean(DaysSurvived, na.rm = T),
             sdSurvival=sd(DaysSurvived, na.rm=T))
 
-#Infectiondata provides summary statistics of infection density
 FishData %>% filter(Infected=="Y") %>% 
   summarize(meanInfection=mean(InfectionDensity.gloch, na.rm=T),
             sdInfection=sd(InfectionDensity.gloch, na.rm=T))
@@ -74,6 +72,37 @@ ggplot(DeadPerDayTreat, aes(x=Died, y=n, fill=Infected))+
   xlab("Day Fish Died, placed Jun 18")+
   facet_wrap(~Treatment)+theme_bw()
 
+FishData %>% filter(Died > ymd("2018-06-19 UTC")) %>%
+  group_by(Treatment) %>% 
+  dplyr::summarize(meanDW=mean(DeadWeight.g, na.rm=T),
+                   sdDW=sd(DeadWeight.g, na.rm=T),
+                   meanWC=mean(WeightChange, na.rm=T),
+                   sdWC=sd(WeightChange, na.rm=T),
+                   meanDL=mean(DeadLength.mm, na.rm=T),
+                   sdDL=sd(DeadLength.mm, na.rm=T))
+
+library(lmerTest)
+FDW.mod<-lmer(DeadWeight.g~Treatment+(1|Tank), data=FishData)
+summary(FDW.mod)
+anova(FDW.mod)
+#assumptions
+hist(residuals(FDW.mod),col="darkgrey") #normal distribution
+qqnorm(resid(FDW.mod)); qqline(resid(FDW.mod)) 
+
+FDL.mod<-lmer(DeadLength.mm~Treatment+(1|Tank), data=FishData)
+summary(FDL.mod)
+anova(FDL.mod)
+#assumptions
+hist(residuals(FDL.mod),col="darkgrey") #normal distribution
+qqnorm(resid(FDL.mod)); qqline(resid(FDL.mod)) 
+
+FWC.mod<-lmer(WeightChange~Treatment+(1|Tank), data=FishData)
+summary(FWC.mod)
+anova(FWC.mod)
+#assumptions
+hist(residuals(FWC.mod),col="darkgrey") #normal distribution
+qqnorm(resid(FWC.mod)); qqline(resid(FWC.mod)) 
+
 ### CumDeath is the tank, type of fish, and treatment type and 
 ### the number of cumualtive dead fish per day
 CumDeath<-FishData  %>% 
@@ -101,6 +130,8 @@ ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
 library(ggsci)
 #InvBioMass found in invertebrates.R
 #calculates biomass of invertebrates from entire experiment
+InvBioMass %>% filter(Week==1 | Week==2) %>% group_by(Taxa) %>% 
+  summarise(sumC=sum(Count),sumBM=sum(TotalBM)) %>% arrange(desc(sumC))
 InvFishBMSum<-InvBioMass %>% filter(Week==1 | Week==2) %>%
   group_by(TxW, Tank, Week, Treatment, Treatment) %>% 
   summarize(TotalBiomass=sum(TotalBM, na.rm=T)/1000,
@@ -117,38 +148,57 @@ InvFishBMSum<-InvBioMass %>% filter(Week==1 | Week==2) %>%
 InvFishBMSum %>% group_by(Week, Treatment) %>% tally() #check we have what we need
 
 TinvBMplot<-ggplot(InvFishBMSum, 
-                   aes(x=Week, y=BMDensity, color=Treatment,group=Treatment))+
-  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
-  stat_summary(position=position_dodge(width=.2), size=1.2)+
-  scale_color_jco(name="Tank Treatment")+
-  ylab(expression("Invert. Biomass g"%*%m^-2))+
-  xlab("Time")+
-  scale_x_discrete(labels=c("Day -1","Day 11"))+
+                   aes(x=Week,y=BMDensity,shape=Treatment,fill=Treatment,
+                       group=Treatment))+
+  stat_summary(fun.y = mean, geom = "line",
+               position=position_dodge(width=.2),
+               size=1.2,aes(color=Treatment))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=.2), fun.args=list(mult=1),
+               size=1.2,aes(color=Treatment))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=.2),
+               size=3)+
+  scale_color_manual(values=c("black","grey"))+
+  scale_fill_manual(values=c("black","grey"))+
+  scale_shape_manual(values=c(21,24))+
+  ylab(expression("Invert. biomass g"%*%m^-2))+
+  xlab("Day")+
+  scale_x_discrete(labels=c("-1","11"))+
   theme(legend.justification=c(1,1),legend.position ="none")
 TinvCount<-ggplot(InvFishBMSum, 
-                  aes(x=Week, y=CountDensity, color=Treatment,group=Treatment))+
-  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=.2), size=1.1)+
-  stat_summary(position=position_dodge(width=.2), size=1.2)+
-  scale_color_jco(guide=F)+
-  ylab(expression("Invertebrates m"^-2))+xlab("Time")+
-  scale_x_discrete(labels=c("Day -1","Day 11"))
+                  aes(x=Week,y=CountDensity,fill=Treatment,shape=Treatment,
+                      group=Treatment))+
+  stat_summary(fun.y = mean, geom = "line",
+               position=position_dodge(width=.2),
+               size=1.2,aes(color=Treatment))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=.2), fun.args=list(mult=1),
+               size=1.2,aes(color=Treatment))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=.2),
+               size=3)+
+  scale_color_manual(values=c("black","grey"), guide=F)+
+  scale_fill_manual(values=c("black","grey"), guide=F)+
+  scale_shape_manual(values=c(21,24), guide=F)+
+  ylab(expression("Invertebrate # m"^-2))+xlab("Day")+
+  scale_x_discrete(labels=c("-1","11"))
 
-InvBMslope<-InvFishBMSum %>% ungroup() %>%
-  select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
-  mutate(InvBMrate=(`2`-`1`)/12)
-slopessss<-InvBMslope %>% left_join(treat)
-InvSlopplot<-ggplot(slopessss, 
-                    aes(x=Treatment, y=InvBMrate, color=Treatment))+
-  geom_point(size=3, position=position_jitter(.25))+scale_color_jco(guide=F)+
-  labs(y=expression(paste(Delta, "Biomass g")%*%day^ -1))+
-  geom_hline(yintercept=0, lty=2) 
+#InvBMslope<-InvFishBMSum %>% ungroup() %>%
+#  select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
+#  mutate(InvBMrate=(`2`-`1`)/12)
+#slopessss<-InvBMslope %>% left_join(treat)
+#InvSlopplot<-ggplot(slopessss, 
+#                    aes(x=Treatment, y=InvBMrate, color=Treatment))+
+#  geom_point(size=3, position=position_jitter(.25))+scale_color_jco(guide=F)+
+#  labs(y=expression(paste(Delta, "Biomass g")%*%day^ -1))+
+#  geom_hline(yintercept=0, lty=2) 
 library(cowplot)
 legend1<-get_legend(TinvBMplot+
-                      theme(legend.position = c(.7,1.1),
+                      theme(legend.position = c(.75,1.3),
                             legend.direction = "horizontal"))
-fishInvPlot<-plot_grid(TinvBMplot, TinvCount, InvSlopplot, ncol=3,labels = c("(a)","(b)","(c)"))
-plot_grid(fishInvPlot,legend1, nrow=2, rel_heights = c(1.1,.1))
-ggsave("FishFig1.tiff", dpi=600, width = 7, height = 3.5, units="in")
+fishInvPlot<-plot_grid( TinvCount,TinvBMplot, ncol=2,
+                       labels = c("(a)","(b)"))
+plot_grid(fishInvPlot,legend1, nrow=2, rel_heights = c(1,.1))
+ggsave("FishFig1.tiff", dpi=600, width = 6, height = 3.4, units="in")
 
 
 InvFishBMSum %>% 
@@ -196,6 +246,8 @@ FST<-left_join(FishSurv1, InvBModel) %>%
   select(-status.char, -alive)
 
 library(survival)
+Surv(FST$timeNumA, FST$status)
+
 giantmodel<-coxph(Surv(timeNumA, status)~Treatment+value+`1`+Est.I.bm, data=FST)
 
 #watertempGood found in physiochem.R
@@ -265,7 +317,7 @@ modelTableM<-full_join(FullModels, loglikely, by="model") %>% arrange(deltaBIC) 
   select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
 library(survminer)
 TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
-           pval = TRUE, conf.int = F,
+           pval = F, conf.int = F,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
@@ -273,22 +325,22 @@ TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
            #conf.int.alpha=0.4,
            #conf.int.style="step",
            surv.median.line = "hv",  # Specify median survival
-           legend.title="Tank Treatment",
+           legend.title="Treatment",
            legend.labs=c("Control","Mussel"),
            xlab="Time (days)")
 IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
-           pval = TRUE, conf.int = F,
-           xticks.by=1,risk.table = F, # Add risk table
+           pval = F, conf.int = F,
+           risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
            palette=c("black","red"),
            surv.median.line = "hv",
-           legend.title="Infection Status",
+           legend.title="Infect. Status",
            legend.labs=c("Not Infected","Infected"),
            xlab="Time (days)",ylab="")
-library(cowplot)
+#library(cowplot)
 survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = c("(a)","(b)"))
-ggsave("FishFig2ncf.tiff",survplots, width=7, height=3.5, dpi=300)
+ggsave("FishFig2ncflin.tiff",survplots, width=7, height=3.5, dpi=300)
 
 R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
 summary(R1)
