@@ -74,8 +74,8 @@ regwc<-WCdata %>% group_by(Tank, Date.day) %>%
   inner_join(physchem, by=c("Tank", "Date.day"="Date")) %>% ungroup() %>%
   mutate(TankF=factor(Tank))
 
-decaymodel<-lme(meanKstep~Temp.C+Cond.uS+DO.mgL, random = ~1|Tank/Date.day, data=regwc)
-decaynull<-lme(meanKstep~1, random=~1|Tank/Date.day, data=regwc)
+decaymodel<-lmer(meanKstep~Temp.C+Cond.uS+DO.mgL, random = ~1|Tank/Date.day, data=regwc)
+decaynull<-lmer(meanKstep~1, random=~1|Tank/Date.day, data=regwc)
 anova(decaynull,decaymodel)
 ## NOT A BETTER MODEL THAN NULL
 

@@ -73,6 +73,12 @@ WaterNutrients<-left_join(NH3WaterNuts,SRPWaterNuts) %>%
   ungroup() %>% mutate(TankF=as.factor(Tank))
 #### graphing water column nutrients & chlorophyll ####
 library(cowplot)
+ppt<-theme(axis.title.y=element_text(size=rel(1.5)),
+                      axis.title.x=element_text(size=rel(1.5)),
+                      axis.text.y=element_text(size=rel(1.5)),
+                      axis.text.x=element_text(size=rel(1.3)),
+                      legend.text = element_text(size=rel(1.1)),
+                      legend.title= element_text(size=rel(1.1)))
 fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       axis.title.x=element_text(size=rel(.6)),
                       axis.text.y=element_text(size=rel(.6)),
@@ -97,7 +103,7 @@ nh3filt<-ggplot(WaterNutrients,
                size=2)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept = 0, linetype="dashed") +
-  ylab(expression("NH"[3]*"-N "*mu*"g "%*%L^-1))+
+  ylab(expression("NH"[4]*"-N "*mu*"g "%*%L^-1))+
   fronteirstheme+
   theme(legend.position = c(0,.65),
         axis.title.x = element_text(size=rel(0)))
@@ -129,7 +135,9 @@ wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,],
                position=position_dodge(width=1.75), fun.args=list(mult=1))+
   stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1.75),
                size=2)+
-  scale_fill_manual(values=col6,guide=F)+ 
+  scale_fill_manual(guide=F,values=col6,
+                     
+                    name="Treatment", labels=c("Control","Dead Mussels","Live Mussels"))+
   scale_color_manual(values=col6, guide=F)+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   geom_vline(xintercept=0, linetype="dashed")+
@@ -140,7 +148,7 @@ wcchl<-ggplot(ChlSummary[ChlSummary$WaterColChlA.ug.L>0,],
   theme(axis.title.x = element_text(size=rel(0)))
 benchl<-ggplot(ChlSummary[ChlSummary$BenthicChlA.ug.cm>0,], 
                aes(x=Day, y=BenthicChlA.ug.cm, 
-                   shappe=NewTreat, fill=NewTreat, color=NewTreat))+
+                   shape=NewTreat, fill=NewTreat, color=NewTreat))+
   stat_summary(fun.y = mean, geom = "line",position=position_dodge(width=1.75))+
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1.75), fun.args=list(mult=1))+

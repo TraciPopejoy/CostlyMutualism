@@ -82,13 +82,13 @@ GPP<-ggplot(Metstats,
                position=position_dodge(width=1.75), fun.args=list(mult=1))+
   stat_summary(fun.y=mean, geom="point",
                aes( shape=NewTreat), position=position_dodge(width=1.75),
-               size=3)+
+               size=4)+
   ylab(expression("Gross DO Production mg "%*%cm^-2*" hr"^-1)) +
   scale_fill_manual(values=col6, name="Treatment", 
                     guide=guide_legend(override.aes=list(shape=c(23,22,21))))+ 
   scale_color_manual(values=col6, name="Treatment")+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+
+  scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+ppt
   theme(#axis.title.y=element_text(size=rel(.7)),
         #axis.title.x=element_text(size=rel(.7)),
         #axis.text.y=element_text(size=rel(.7)),
@@ -108,21 +108,21 @@ physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem") %>%
   mutate(Date=date(Time))
 
 #building a key to link tiles to the tanks they were taken from
-KeyTile<-physchem %>% select(Date, Tank, Chl1, Chl2) %>% 
-  gather(col, ChlSample, -Date, -Tank) %>% select(-col)
+KeyTile<-physchem %>% dplyr::select(Date, Tank, Chl1, Chl2) %>% 
+  gather(col, ChlSample, -Date, -Tank) %>% dplyr::select(-col)
 
 # prediction chlorophyl abundance from 665 and 664 readings(to account for peophyton)
 # chlorophyl abundance divided by samping area (glass fritted disc size)
 ChlTile<-Chl %>% inner_join(KeyTile) %>% 
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/discA)*1) %>%
-  select(-Notes) %>% group_by(Tank, Date) %>% 
+  dplyr::select(-Notes) %>% group_by(Tank, Date) %>% 
   dplyr::summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
             Compartment="Benthic") %>%
   left_join(treat)
 
 #building a key to link filter numbers to the tanks they were taken from
-KeyFila<-physchem %>% select(Date, Tank, WCFilter1, FilterVolume1)
-KeyFilb<-physchem %>% select(Date, Tank, WCFilter2, FilterVolume2)
+KeyFila<-physchem %>% dplyr::select(Date, Tank, WCFilter1, FilterVolume1)
+KeyFilb<-physchem %>% dplyr::select(Date, Tank, WCFilter2, FilterVolume2)
 names(KeyFilb)[c(3,4)]<-c("WCFilter1","FilterVolume1")
 KeyFil<-rbind(KeyFila, KeyFilb)
 
@@ -130,17 +130,17 @@ KeyFil<-rbind(KeyFila, KeyFilb)
 # chlorophyl abundance divided by the volume of water filtered
 ChlFilter<-Chl %>% inner_join(KeyFil, by=c("ChlSample"="WCFilter1")) %>%
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/FilterVolume1)*1) %>%
-  select(-Notes)%>%
+  dplyr::select(-Notes)%>%
   group_by(Tank, Date) %>% 
   dplyr::summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
             Compartment="Water Column")
 
 # joining benthic and water column samples into one table
 ChlSummary<- inner_join(ChlFilter, ChlTile, by=c("Tank","Date"))%>% 
-  select(-Excretion, -InfectionRound, -Notes, -nLiveMussels) %>%
+  dplyr::select(-Excretion, -InfectionRound, -Notes, -nLiveMussels) %>%
   mutate(Day=as.numeric(Date-ymd("2018-07-02")))
 names(ChlSummary)[c(3,5)]<-c("WaterColChlA.ug.mL","BenthicChlA.ug.cm")
-ChlSummary<-ChlSummary %>% select(-Compartment.x, -Compartment.y) %>%
+ChlSummary<-ChlSummary %>% dplyr::select(-Compartment.x, -Compartment.y) %>%
   mutate(DayF=as.factor(Day),
          WaterColChlA.ug.L=WaterColChlA.ug.mL*1000) %>%
   ungroup()
@@ -281,14 +281,26 @@ cotton<-read_excel("./data/Traci_Popejoy_tensile_data_2018.xlsx")
 # using cotton strips to determine organic matter decomposition in the tanks
 # quantification methods follow Tiegs et al 2013
 decomp<-cotton %>% left_join(treat) %>% 
-  select(Tank, NewTreat, Day.decomp, Day.postMM, Tensile.lbs) %>%
+ dplyr::select(Tank, NewTreat, Day.decomp, Day.postMM, Tensile.lbs) %>%
   mutate(og.lost=mean(as.matrix(cotton[cotton$Tank=="CTRL",7])) - Tensile.lbs,
          per.ratio=Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
          lost.str=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
          lost.str.p=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100,
-         per.lost=(1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100)/Day.decomp)
+         per.lost=abs(1-(((Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))*100)/Day.decomp)))
 decompG<-decomp %>% filter(!is.na(decomp$NewTreat)) %>%
   mutate(NTF=factor(NewTreat))
+ggplot(decompG, aes(x=Day.decomp, y=per.lost, color=NewTreat))+
+  stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1))+
+  stat_summary(fun.data = mean_sdl, geom="linerange", 
+               position=position_dodge(width=1), fun.args=list(mult=1))+
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1), size=3)+
+  scale_fill_manual(values=col6, name="Treatment", 
+                    labels=c("Control", "Dead Mussels","Live Mussels"))+ 
+  scale_color_manual(values=col6, name="Treatment",
+                     guide=guide_legend(override.aes=list(shape=c(23,22,21))),
+                     labels=c("Control", "Dead Mussels","Live Mussels"))+ 
+  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
+  scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")
 
 cottonplt<-ggplot(decompG, 
                   aes(x=Day.decomp, y=Tensile.lbs, 
@@ -296,8 +308,7 @@ cottonplt<-ggplot(decompG,
   stat_summary(fun.y = mean, geom = "line", position=position_dodge(width=1))+
   stat_summary(fun.data = mean_sdl, geom="linerange", 
                position=position_dodge(width=1), fun.args=list(mult=1))+
-  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1), size=2)+
-  ylab(expression("Gross DO Production ug "%*%L^-1)) +
+  stat_summary(fun.y=mean, geom="point", position=position_dodge(width=1), size=4)+
   scale_fill_manual(values=col6, name="Treatment", 
                     labels=c("Control", "Dead Mussels","Live Mussels"))+ 
   scale_color_manual(values=col6, name="Treatment",
@@ -306,10 +317,11 @@ cottonplt<-ggplot(decompG,
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
   scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")+
   scale_y_continuous(name="Tensile Strength (lbs)")+
-  fronteirstheme+
+  geom_hline(yintercept=65.6) +fronteirstheme+
+
   #theme(legend.position = c(0.05,.99), legend.direction = "horizontal",
-  theme(legend.position = c(0.07,.2), legend.direction = "vertical",
-        axis.text.x=element_text(size=rel(.6)))
+  theme(legend.position = c(0.07,.2), legend.direction = "vertical")
+        axis.text.x=element_text(size=rel(.6))
 ggsave("DeathFigures/Fig4.tiff", cottonplt,width=3.34, height=3, dpi=300)
 mean_sdl(as.matrix(decomp[is.na(decomp$NewTreat),5]), mult=1)
 
@@ -326,6 +338,12 @@ confint(dc1)
 
 dc1st<-emmeans(dc1, pairwise~NTF:Day.decomp, adjust="tukey")
 CLD(dc1st, alpha=.05, Letters=letters, adjust="tukey")
+
+dc2<-lmer(per.lost~ NTF*Day.decomp, data=decompG)
+anova(dc2)
+summary(dc2)
+dc2st<-emmeans(dc2, pairwise~NTF*Day.decomp, adjust="tukey")
+CLD(dc2st, alpha=.05, Letters=letters, adjust="tukey")
 
 ggplot(decomp, aes(x=Day.decomp, y=og.lost, fill=NewTreat)) +
   geom_boxplot(aes(group=interaction(Day.decomp, NewTreat)))
