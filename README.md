@@ -16,3 +16,14 @@ physiochem.R has code from hobo temperature loggers and physical-chemical parame
 MusselLost.R describes the community with the tanks, mussel soft tissue decay, and mussel biomass estimation.
 
 waterchem.R analyzes absorbance values of water column samples for Ammonium and SRP throughout the experiment. 
+
+##Products from this project:
+Articles in review:
+DuBose, T.P., Atkinson, C.L, Vaughn, C.C., Golladay, S.W. (2019) Drought-induced, punctuated loss of freshwater mussels alters ecosystem services at several timescales. Invited submission in review at Frontiers in Ecology and Evolution
+
+Articles in prep:
+DuBose, T.P., Ashford, K., Vaughn, C.C. Benefits of a parasite in drying systems: the presence of freshwater mussels increases survival in largemouth bass. Planned submission to Ecology of Freshwater Fish
+
+Conference Presentations:
+T.P. DuBose, C.C. Vaughn, C.L. Atkinson, & S.W. Golladay. "Drought-induced, punctuated loss of freshwater mussels alters ecosystem services: a mesocosm experiment" Presented at the Society of Freshwater Science Conference, Salt Lake City, UT. 
+T.P. DuBose, C.C. Vaughn, C.L. Atkinson, & S.W. Golladay. "Drought-induced, punctuated loss of freshwater mussels alters ecosystem services: a mesocosm experiment" Presented at the Freshwater Mussel Conservation Society Biennial Symposium, San Antonio, TX. 
