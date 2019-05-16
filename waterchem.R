@@ -54,9 +54,9 @@ SRPWaterNuts<-SRPraw %>%
   dplyr::summarize(FilterdSRPugL=mean(`WCNF`, na.rm=T), 
             UnFiltSRPugL=mean(`WCN `, na.rm=T))
 #using physchem to add dates to the table
-head(physchem) #in physiochem.R script
-#physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
-#physchem[,"Date"]<-as.Date(physchem$Time)
+#head(physchem) #in physiochem.R script
+physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
+physchem[,"Date"]<-as.Date(physchem$Time)
 library(lubridate)
 # joining with physchem and calculating molar ratio between the samples
 # this is the data frame used for graphs and models
@@ -170,13 +170,22 @@ ggsave("DeathFigures/Fig3.tiff", width=6, height=7, dpi=300)
 ##### Water Nutrients LINEAR MODELS #####
 ## models
 library(lme4); library(emmeans); library(lmerTest) 
+library(BayesFactor)
 ## WaterNutrients table has a row for each tank * week and 
 ## columns of nutrient concentrations (filtered & unfiltered)
 ## talk to michael about talking back to reviewers
 # get pinheiro &bates mixed effects models in s
 nrow(WaterNutrients)
 #nitrogen
+data("puzzles")
+bf<-anovaBF(RT~shape*color+ID, data=puzzles, whichRandom="ID")
+WN.data<-as.data.frame(WaterNutrients)
+WN.data$DayF<-factor(WN.data$Day)
+WN.data$TreatF<-factor(WN.data$NewTreat)
+nhB<-anovaBF(FilterdNH3ugL ~ TreatF*DayF+TankF, data=WN.data,
+        whichRandom="TankF")
 WNmodFnh3R<-lmer(FilterdNH3ugL ~ NewTreat * Day +(1|Tank), data=WaterNutrients)
+Bays<
 devWNH3Tanks<-allFit(WNmodFnh3R)
 ranova(WNmodFnh3R) #Tank not significant
 ggplot(WaterNutrients, aes(x=Day, y=FilterdNH3ugL, group=Tank, color=NewTreat))+

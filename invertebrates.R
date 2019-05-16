@@ -10,8 +10,9 @@ BiomassReg<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx") #regressions
 Inv<-read_excel("./data/CostMutData.xlsx", sheet="BenthicMacroInvert",
                 col_types=c("guess","text","guess","numeric","numeric",
                             "guess","guess")) %>%
-  select(-Notes) %>%
-  left_join(treat) %>% select(-nLiveMussels, -Notes, -InfectionRound, -Excretion) %>% 
+  dplyr::select(-Notes) %>%
+  left_join(treat) %>% 
+  dplyr::select(-nLiveMussels, -Notes, -InfectionRound, -Excretion) %>% 
   mutate(TxW=as.factor(paste(Tank,Week, sep=".")))
 #clean the data frame
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
@@ -45,7 +46,7 @@ biomass<-function(Fam, Ord, Length) {
 } #try #trycatch #stackoverflow
 #for loop with a print
 
-InvBioMass<-InvClean %>% select(-Notes,-ID.person) %>%
+InvBioMass<-InvClean %>% dplyr::select(-Notes,-ID.person) %>%
   rowwise() %>%
   mutate(BM=biomass(Family,Order, Length.mm), 
          TotalBM=Count*BM)
