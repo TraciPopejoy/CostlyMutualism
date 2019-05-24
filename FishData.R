@@ -182,15 +182,15 @@ TinvCount<-ggplot(InvFishBMSum,
   ylab(expression("Invertebrate # m"^-2))+xlab("Day")+
   scale_x_discrete(labels=c("-1","11"))
 
-#InvBMslope<-InvFishBMSum %>% ungroup() %>%
-#  select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
-#  mutate(InvBMrate=(`2`-`1`)/12)
-#slopessss<-InvBMslope %>% left_join(treat)
-#InvSlopplot<-ggplot(slopessss, 
-#                    aes(x=Treatment, y=InvBMrate, color=Treatment))+
-#  geom_point(size=3, position=position_jitter(.25))+scale_color_jco(guide=F)+
-#  labs(y=expression(paste(Delta, "Biomass g")%*%day^ -1))+
-#  geom_hline(yintercept=0, lty=2) 
+InvBMslope<-InvFishBMSum %>% ungroup() %>%
+  dplyr::select(Tank,Week, TotalBiomass) %>% spread(Week, TotalBiomass) %>%
+  mutate(InvBMrate=(`2`-`1`)/12)
+slopessss<-InvBMslope %>% left_join(treat)
+InvSlopplot<-ggplot(slopessss, 
+                    aes(x=Treatment, y=InvBMrate, color=Treatment))+
+  geom_point(size=3, position=position_jitter(.25))+scale_color_jco(guide=F)+
+  labs(y=expression(paste(Delta, "Biomass g")%*%day^ -1))+
+  geom_hline(yintercept=0, lty=2) 
 library(cowplot)
 legend1<-get_legend(TinvBMplot+
                       theme(legend.position = c(.75,1.3),
@@ -223,12 +223,13 @@ qqnorm(resid(Bbio)); qqline(resid(Bbio))
 ##### COX Regression #####
 #need to have a list with dataframes of time, status, and variables to consider
 FishSurv1<-FishData %>% filter(Died >= ymd("2018-06-20")) %>% 
-  select(Died, ID,Tank,Infected, Treatment, alive) %>%
+  dplyr::select(Died, ID,Tank,Infected, Treatment, alive) %>%
   gather(variable, value, c(-Died, -ID,-Tank, -Treatment, -alive)) %>% 
   group_by(Died, ID) %>%
   mutate(status=n(), 
          status.char="dead",
-         timeNumA=interval(ymd("2018-06-18"),ymd(Died)) %/% days()) %>% select(-variable)
+         timeNumA=interval(ymd("2018-06-18"),ymd(Died)) %/% days()) %>% 
+  dplyr::select(-variable)
 FishSurv1[FishSurv1$alive=="ALIVE" &
           !is.na(FishSurv1$alive), 7]<-0
 
@@ -243,7 +244,7 @@ InvBModel<-tibble(Date=rep(unique(FishSurv1$Died), 18)) %>%  arrange(Date) %>%
 #bad idea to try and look at community change from 1 to 2         
 
 FST<-left_join(FishSurv1, InvBModel) %>%  
-  select(-status.char, -alive)
+  dplyr::select(-status.char, -alive)
 
 library(survival)
 Surv(FST$timeNumA, FST$status)
@@ -317,11 +318,11 @@ modelTableM<-full_join(FullModels, loglikely, by="model") %>% arrange(deltaBIC) 
   select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
 library(survminer)
 TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
-           pval = F, conf.int = F,
+           pval = F, conf.int = T,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
-           palette="jco",
+           palette=c('black','grey'),
            #conf.int.alpha=0.4,
            #conf.int.style="step",
            surv.median.line = "hv",  # Specify median survival
@@ -329,18 +330,18 @@ TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
            legend.labs=c("Control","Mussel"),
            xlab="Time (days)")
 IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
-           pval = F, conf.int = F,
+           pval = F, conf.int = T,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
-           linetype = 1, # Change line type by groups
-           palette=c("black","red"),
+           linetype = c(3,4), # Change line type by groups
+           palette=c("black","grey"),
            surv.median.line = "hv",
            legend.title="Infect. Status",
            legend.labs=c("Not Infected","Infected"),
            xlab="Time (days)",ylab="")
 #library(cowplot)
 survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = c("(a)","(b)"))
-ggsave("FishFig2ncflin.tiff",survplots, width=7, height=3.5, dpi=300)
+ggsave("FishFig2.tiff",survplots, width=7, height=3.5, dpi=300)
 
 R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
 summary(R1)
