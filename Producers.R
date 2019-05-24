@@ -43,8 +43,6 @@ library(car); library(lme4); library(lmerTest);library(emmeans)
 nrow(Metstats)
 Met0<-lmer(meanGPP~(1|Tank), data=Metstats, REML=F)
 Met1<-lmer(meanGPP~NewTreat * Day + (1|Tank), data=Metstats, REML=F)
-devMet<-allFit(Met1)
-summary(devMet)
 anova(Met1)
 summary(Met1)
 
@@ -54,7 +52,7 @@ CLD(Metlsd1, alpha=.05, Letters=letters, adjust="tukey")
 ##### assumptions
 hist(residuals(Met1),col="darkgrey") #approximates normal
 plot(fitted(Met1), residuals(Met1))  #approximates heteroskodastity
-qqnorm(resid(Met1));qqline(resid(Met1))
+#qqnorm(resid(Met1));qqline(resid(Met1))
 
 ##### graphing metabolism
 library(scales); library(ggsci)
@@ -88,7 +86,7 @@ GPP<-ggplot(Metstats,
                     guide=guide_legend(override.aes=list(shape=c(23,22,21))))+ 
   scale_color_manual(values=col6, name="Treatment")+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+ppt
+  scale_x_continuous(breaks = unique(Metstats$Day), name="Sampling Day")+
   theme(#axis.title.y=element_text(size=rel(.7)),
         #axis.title.x=element_text(size=rel(.7)),
         #axis.text.y=element_text(size=rel(.7)),
