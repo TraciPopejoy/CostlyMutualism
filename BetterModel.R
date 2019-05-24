@@ -12,7 +12,7 @@ model_string<- "model {
   for (i in 1:length(res)) { # loop over mesocosms / observations
     # varying intercept/slope for every mesocosm
     mu[i] <- beta[treat[i], week[i]] + alpha[tank[i]]
-    res[i] ~ dnorm(mu[i], tau)
+    res[i] ~ dnorm(mu[i], tau) #try a gamma dist
   }
   # priors
   tau <- pow(sigma,-2) #precision on res
