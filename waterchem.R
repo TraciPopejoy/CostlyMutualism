@@ -1,5 +1,4 @@
-library(Hmisc);library(readxl); library(ggplot2)
-library(tidyverse)
+library(Hmisc);library(readxl); library(ggplot2); library(tidyverse)
 treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
 nitrogen<-read_xlsx("./data/WaterNutrients.xlsx", sheet="Ammonia") #ammonia absorbance
 #isolate nitrogen standards
@@ -60,25 +59,27 @@ physchem[,"Date"]<-as.Date(physchem$Time)
 library(lubridate)
 # joining with physchem and calculating molar ratio between the samples
 # this is the data frame used for graphs and models
-WaterNutrients<-left_join(NH3WaterNuts,SRPWaterNuts) %>% 
+WaterNutrients<-left_join(NH3WaterNuts,SRPWaterNuts, by=c("Tank","Week")) %>% 
   mutate(Filt.element.ratio=FilterdNH3ugL/FilterdSRPugL*(30.97/14.01),
          Unfilt.element.ratio=UnFiltNH3ugL/UnFiltSRPugL*(30.97/14.01),
          Week.c=as.numeric(paste(Week))) %>%
   left_join(physchem, by=c("Week.c"="Week", "Tank"))%>%
   mutate(Day=as.numeric(Date-ymd("2018-07-02")),
          logNH3=log10(FilterdNH3ugL)) %>%
-  left_join(treat[,c(1,7)]) %>% filter(Week!=4) %>%
+  left_join(treat[,c(1,7)], by="Tank") %>% filter(Week!=4) %>%
   select(-Temp.C, -Cond.uS, -DO.mgL, -WaterV.mLs, -Time, -Chl1, -Chl2, -WCFilter1,
          -FilterVolume1, -WCFilter2, -FilterVolume2) %>% #removing irrelevant columns
   ungroup() %>% mutate(TankF=as.factor(Tank))
 #### graphing water column nutrients & chlorophyll ####
 library(cowplot)
+#theme for powerpoint
 ppt<-theme(axis.title.y=element_text(size=rel(1.5)),
                       axis.title.x=element_text(size=rel(1.5)),
                       axis.text.y=element_text(size=rel(1.5)),
                       axis.text.x=element_text(size=rel(1.3)),
                       legend.text = element_text(size=rel(1.1)),
                       legend.title= element_text(size=rel(1.1)))
+#theme for journal
 fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       axis.title.x=element_text(size=rel(.6)),
                       axis.text.y=element_text(size=rel(.6)),
@@ -86,7 +87,6 @@ fronteirstheme<-theme(axis.title.y=element_text(size=rel(.6)),
                       legend.direction = "vertical", legend.position =c(0,.74),
                       legend.text = element_text(size=rel(.5)),
                       legend.title= element_text(size=rel(.5)))
-#col6<-c("darkgrey","#5389a6","forestgreen") #col6 in Producers.R
 col6<-c("black","blue3","yellow3") #col6 in Producers.R
 nh3filt<-ggplot(WaterNutrients,
                 aes(x=Day, y=FilterdNH3ugL, 
@@ -167,50 +167,37 @@ plot_grid(nh3filt, srpfil,wcchl,benchl, ncol=1)
 
 ggsave("DeathFigures/Fig3.tiff", width=6, height=7, dpi=300)
 
-##### Water Nutrients LINEAR MODELS #####
-## models
+##### Water Nutrients Statistics #####
 library(lme4); library(emmeans); library(lmerTest) 
-library(BayesFactor)
 ## WaterNutrients table has a row for each tank * week and 
 ## columns of nutrient concentrations (filtered & unfiltered)
-## talk to michael about talking back to reviewers
-# get pinheiro &bates mixed effects models in s
 nrow(WaterNutrients)
+18*7 #one sample per tank per sampling day
 #nitrogen
-data("puzzles")
-bf<-anovaBF(RT~shape*color+ID, data=puzzles, whichRandom="ID")
-WN.data<-as.data.frame(WaterNutrients)
-WN.data$DayF<-factor(WN.data$Day)
-WN.data$TreatF<-factor(WN.data$NewTreat)
-nhB<-anovaBF(FilterdNH3ugL ~ TreatF*DayF+TankF, data=WN.data,
-        whichRandom="TankF")
-WNmodFnh3R<-lmer(FilterdNH3ugL ~ NewTreat * Day +(1|Tank), data=WaterNutrients)
-Bays<
-devWNH3Tanks<-allFit(WNmodFnh3R)
+WNmodFnh3R<-lmer(logNH3 ~ NewTreat * Day +(1|Tank), data=WaterNutrients)
+#devWNH3Tanks<-allFit(WNmodFnh3R)
+# over fitting the model but what you going to do with reviewers
 ranova(WNmodFnh3R) #Tank not significant
-ggplot(WaterNutrients, aes(x=Day, y=FilterdNH3ugL, group=Tank, color=NewTreat))+
-  geom_line()
-WNmodFnh3<-lm(FilterdNH3ugL ~ NewTreat * Day, data=WaterNutrients)
-anova(WNmodFnh3)
-summary(WNmodFnh3)
+anova(WNmodFnh3R)
+summary(WNmodFnh3R)
 
-WNfNh<-emmeans(WNmodFnh3, pairwise~NewTreat*Day, adjust="tukey")
+#tukey's post hoc
+WNfNh<-emmeans(WNmodFnh3R, pairwise~NewTreat*Day, adjust="tukey")
 CLD(WNfNh, alpha=.05, Letters=letters, adjust="tukey")
+#nitrogen
+hist(residuals(WNmodFnh3R),col="darkgrey") #normal distribution?
+plot(fitted(WNmodFnh3R), residuals(WNmodFnh3R)) #heteroscadastic
+qqnorm(resid(WNmodFnh3R)); qqline(resid(WNmodFnh3R)) #large values poorly predicted
 
 #phosphorus
 WNmodFsrp<-lmer(FilterdSRPugL ~ NewTreat * Day + (1|TankF), data=WaterNutrients)
 anova(WNmodFsrp)
-lme4::summary(WNmodFsrp)
-
+summary(WNmodFsrp)
+#tukey's post hoc
 WNsrpT<-emmeans(WNmodFsrp, pairwise~NewTreat*Day, adjust="tukey")
 CLD(WNsrpT, alpha=.05, Letters=letters, adjust="tukey")
 
-##### assumptions
-#nitrogen
-hist(residuals(WNmodFnh3),col="darkgrey") #normal distribution?
-plot(fitted(WNmodFnh3), residuals(WNmodFnh3)) #heteroscadastic
-qqnorm(resid(WNmodFnh3)); qqline(resid(WNmodFnh3)) #large values poorly predicted
-#phosphorus
+# assumptions:phosphorus
 hist(residuals(WNmodFnh3),col="darkgrey") #normal distribution?
 plot(fitted(WNmodFsrp), residuals(WNmodFsrp)) #heteroscadastic
 qqnorm(resid(WNmodFsrp)); qqline(resid(WNmodFsrp))

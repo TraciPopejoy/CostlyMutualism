@@ -1,7 +1,7 @@
 library(readxl); library(lubridate); library(tidyverse)
 ##### Metabolism Analysis #####
-Met<-read_excel("./data/CostMutMetabolism.xlsx",sheet = 1)
-treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
+Met<-read_excel("./data/CostMutMetabolism.xlsx",sheet = 1) #metabolism data
+treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
 
 discA=(pi*(27.5/2)^2)/100 #area of discs in cm2
 
@@ -24,7 +24,7 @@ Metstats<-MetC %>% group_by(Tank, Date) %>% dplyr::summarize(meanNEP=mean(NEPhr)
   ungroup()
 
 Metgraph<-Metstats %>% dplyr::select(Tank,Date,meanNEP,meanER,meanGPP) %>% 
-  gather(variable, value,-Tank,-Date) %>% full_join(treat) %>% 
+  gather(variable, value,-Tank,-Date) %>% full_join(treat, by="Tank") %>% 
   dplyr::select(NewTreat, Tank, Date, variable, value)
 
 ### "per unit surface area per unit time"
@@ -46,31 +46,17 @@ Met1<-lmer(meanGPP~NewTreat * Day + (1|Tank), data=Metstats, REML=F)
 anova(Met1)
 summary(Met1)
 
-Metlsd1<-emmeans(Met1, pairwise~NewTreat*Day)
-CLD(Metlsd1, alpha=.05, Letters=letters, adjust="tukey")
+#tukeys post hoc test
+Metlsd1<-emmeans(Met1, pairwise~NewTreat) #object contains contrasts & sig
+CLD(Metlsd1, alpha=.05, Letters=letters, adjust="tukey") #letters on dif groups
 
 ##### assumptions
 hist(residuals(Met1),col="darkgrey") #approximates normal
 plot(fitted(Met1), residuals(Met1))  #approximates heteroskodastity
-#qqnorm(resid(Met1));qqline(resid(Met1))
+qqnorm(resid(Met1));qqline(resid(Met1))
 
 ##### graphing metabolism
-library(scales); library(ggsci)
-NEP<-ggplot(Metgraph[Metgraph$variable=="meanNEP",], 
-            aes(x=Date,y=value, fill=NewTreat, group=interaction(Date,NewTreat)))+
-  geom_boxplot()+
-  ylab("Net Ecosystem Production")+
-  scale_fill_aaas(name="Treatment")+
-  scale_x_date(breaks = unique(Metgraph$Date), labels = date_format("%b-%d"))+
-  theme(legend.position="top")
-ER<-ggplot(Metgraph[Metgraph$variable=="meanER",], 
-           aes(x=Date,y=value, fill=NewTreat, group=interaction(Date,NewTreat)))+
-  geom_boxplot()+
-  ylab("Respiration")+
-  scale_fill_aaas(guide=F)+
-  scale_x_date(breaks = unique(Metgraph$Date), labels = date_format("%b-%d"))+
-  theme(axis.text.x=element_text(angle = 30, hjust=.7))
-
+library(scales); library(ggsci); library(cowplot)
 col6<-c("black","blue3","yellow3")
 ### fronteirstheme found in waterchem.R
 GPP<-ggplot(Metstats, 
@@ -94,14 +80,15 @@ GPP<-ggplot(Metstats,
         legend.direction = "vertical", legend.position =c(0,.8))
         #legend.text = element_text(size=rel(.65)),
         #legend.title= element_text(size=rel(.7)))
-# Figure not used enough in manuscript; not including per reviewer request
+
+## Figure not used enough in manuscript; not including per reviewer request
 #ggsave("DeathFigures/Fig3.tiff", GPP, width=3.34, height= 3.34, dpi=300)
 #bottom_row <- plot_grid(ER, GPP, labels = c('B', 'C'), align = 'h')
 #plot_grid(NEP, bottom_row, labels = c('A', ''), ncol = 1, rel_heights = c(1.2,1))
 
 
 ##### Chlorophyll Analysis #####
-Chl<-read_excel("./data/CostMutData.xlsx",sheet = "CHL")
+Chl<-read_excel("./data/CostMutData.xlsx",sheet = "CHL") #chlorophyll data
 physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem") %>% 
   mutate(Date=date(Time))
 
@@ -111,12 +98,12 @@ KeyTile<-physchem %>% dplyr::select(Date, Tank, Chl1, Chl2) %>%
 
 # prediction chlorophyl abundance from 665 and 664 readings(to account for peophyton)
 # chlorophyl abundance divided by samping area (glass fritted disc size)
-ChlTile<-Chl %>% inner_join(KeyTile) %>% 
+ChlTile<-Chl %>% inner_join(KeyTile, by="ChlSample") %>% 
   mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/discA)*1) %>%
   dplyr::select(-Notes) %>% group_by(Tank, Date) %>% 
   dplyr::summarize(mChlA.ug.cm=mean(ChlAdensity.ug),
             Compartment="Benthic") %>%
-  left_join(treat)
+  left_join(treat, by="Tank")
 
 #building a key to link filter numbers to the tanks they were taken from
 KeyFila<-physchem %>% dplyr::select(Date, Tank, WCFilter1, FilterVolume1)
@@ -152,9 +139,10 @@ ChlSummary[ChlSummary$Tank=="Q" & ChlSummary$Date==ymd("2018-06-17"),5:6]<-"Cont
 library(car);library(lme4);library(lmerTest);library(emmeans)
 # ChlSummary has tank, date, and water column and benthic chlorophyl concentrations
 nrow(ChlSummary)
+18*7 #one sample per tank per date
 #watercolumn
 Wchl1<-lmer(log10(WaterColChlA.ug.L)~ NewTreat * Day + (1|Tank), data=ChlSummary, REML=F)
-devWChl<-allFit(Wchl1)
+#devWChl<-allFit(Wchl1)
 anova(Wchl1)
 summary(Wchl1)
 ranova(Wchl1)
@@ -192,99 +180,23 @@ discCor$resid<-residuals(dcMOD)
 # did not include this because correlated with other measures 
 # also silicone on the tiles kept igniting and spreading ash throughout
 # the muffle furnace making some of this data dubious
-AFDMraw<-read_excel("./data/CostMutData.xlsx",sheet = "AFDM")
-filtweight<-read_excel("./data/CostMutData.xlsx",sheet = "PreFilter")
 
-head(KeyFil)
-# calculating ash free dry mass after removing samples impacted by silicone ash
-AFDMfil<-AFDMraw %>% inner_join(KeyFil, by=c("Filter"="WCFilter1")) %>%
-  left_join(filtweight)%>% filter(State!="BAD"|is.na(State) | Date!=ymd("2018-07-20")) %>%
-  mutate(Matter=(DryWeight-TinWeight-Pre.Weight)/FilterVolume1,
-         OrgM.gml=(DryWeight-AshedWeight)/FilterVolume1,
-         InOrgM.gml=(Matter-(AshedWeight-DryWeight))/FilterVolume1) %>%
-  select(-Reason, -Tin)%>%
-  group_by(Tank, Date) %>% 
-  summarize(meanMatter.gl=mean(Matter, na.rm=T)*1000,
-            meanOrgM.gl=mean(OrgM.gml, na.rm=T)*1000,
-            meanInOrgM.gl=mean(InOrgM.gml, na.rm=T)*1000,
-            Compartment="Water Column") %>%
-  left_join(treat) %>% 
-  select(-nLiveMussels, -Excretion, -InfectionRound, -Notes) %>%
-  mutate(Day=as.numeric(Date-ymd("2018-07-02")))
-afdmSub<-AFDMfil %>% filter(Date==ymd("2018-07-06") | Date==ymd("2018-06-29"))
-
-afdmplot<-ggplot(afdmSub, aes(x=Day, y=meanOrgM.gl, fill=NewTreat, color=NewTreat))+
-  stat_summary(fun.y = mean, geom = "line")+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+
-  scale_fill_manual(values=col6, name="Treatment", 
-                    guide=guide_legend(override.aes=list(shape=c(23,22,21))))+ 
-  scale_color_manual(values=col6, name="Treatment")+ 
-  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  ylab(expression("Organic Matter g "%*%L^-1))+
-  geom_vline(xintercept=0, linetype="dashed")+
-  scale_y_log10(breaks=c(0,.1,.25,.5,1))+
-  scale_x_continuous(breaks=sort(unique(AFDMfil$Day)), name="Sampling Day")+
-  fronteirstheme+
-  theme(axis.title.y=element_text(size=rel(.5)),axis.text.y=element_text(size=rel(.5)),
-        axis.text.x=element_text(hjust=.75, size=rel(.45)))
-afdmplot
-ggsave("Fig5.tiff", afdmplot, width = 5, height=3.34)
-
-#### ash free dry mass correlation with chlorophyll ####
-filcor<-left_join(ChlFilter, AFDMfil)
-summary(lm(meanOrgM.gl~mChlA.ug.cm, data=filcor))
-
-#calculating the autotroph index found in Tank et al 2017 (Methods in Stream Ecology)
-autoin<-Chl %>% inner_join(KeyFil, by=c("ChlSample"="WCFilter1")) %>%
-  mutate(ChlAdensity.ug=26.7*((fir664-fir750)-(sec665-sec750))*(10/FilterVolume1)*1) %>%
-  select(-Notes) %>% left_join(AFDMraw, by=c("ChlSample"="Filter"))%>% 
-  left_join(filtweight, by=c("ChlSample"="Filter"))%>%
-  filter(State!="BAD"|is.na(State) | Date!=ymd("2018-07-20")) %>%
-  mutate(Matter=(DryWeight-TinWeight-Pre.Weight)/FilterVolume1,
-         OrgM.gml=(DryWeight-AshedWeight)/FilterVolume1,
-         InOrgM.gml=(Matter-(AshedWeight-DryWeight))/FilterVolume1) %>%
-  select(-Reason, -Tin) %>% group_by(Tank, Date) %>%
-  summarize(AutoI=mean(ChlAdensity.ug/OrgM.gml, na.rm=T)) %>% left_join(treat) %>%
-  mutate(Day=as.numeric(Date-ymd("2018-07-02")))
-ggplot(autoin, aes(x=Date, y=AutoI, fill=NewTreat,color=NewTreat))+
-  stat_summary(aes(shape=NewTreat), position=position_dodge(width=1))+
-  stat_summary(geom="line") +
-  geom_vline(xintercept = ymd("2018-07-02"), linetype="dashed")+
-  scale_fill_manual(values=col6, name="Treatment", 
-                    guide=guide_legend(override.aes=list(shape=c(23,22,21))))+
-  scale_color_manual(values=col6, name="Treatment")+ 
-  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)
-
-auto1<-lmer(AutoI~NewTreat + Day + (1|Tank), data=autoin)
-anova(auto1)
-
-ggplot(AFDMfil, aes(x=Day, y=meanMatter.gl, fill=NewTreat, color=NewTreat))+
-  stat_summary(fun.y = mean, geom = "line")+
-  stat_summary(aes(fill=NewTreat, shape=NewTreat), position=position_dodge(width=1.75))+
-  scale_fill_manual(values=col6, name="Treatment", 
-                    guide=guide_legend(override.aes=list(shape=c(23,22,21))))+ 
-  scale_color_manual(values=col6, name="Treatment")+ 
-  scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  ylab(expression("Organic Matter g "%*%L^-1))+
-  geom_vline(xintercept=0, linetype="dashed")
-
-##### assumptions
-hist(residuals(afdm1),col="darkgrey") #very not normal
-plot(fitted(afdm1), residuals(afdm1))  #heteroskodastic
-qqnorm(resid(afdm1))
 
 ##### Decomposers - cotton strips #####
 cotton<-read_excel("./data/Traci_Popejoy_tensile_data_2018.xlsx")
 
 # using cotton strips to determine organic matter decomposition in the tanks
 # quantification methods follow Tiegs et al 2013
-decomp<-cotton %>% left_join(treat) %>% 
+decomp<-cotton %>% left_join(treat, by="Tank") %>% 
  dplyr::select(Tank, NewTreat, Day.decomp, Day.postMM, Tensile.lbs) %>%
   mutate(og.lost=mean(as.matrix(cotton[cotton$Tank=="CTRL",7])) - Tensile.lbs,
          per.ratio=Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
-         lost.str=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])),
-         lost.str.p=1-Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))*100,
-         per.lost=abs(1-(((Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))*100)/Day.decomp)))
+         lost.str=1-(Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7]))),
+         lost.str.otr=(Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))*100,
+         lost.str.p=1-(Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))*100,
+         per.lost=abs(1-(((Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))*100)/Day.decomp)),
+         kstrip=(1/Day.decomp)*(log(Tensile.lbs/mean(as.matrix(cotton[cotton$Tank=="CTRL",7])))))
+#k=(1/time)[ln(massfinal/massinitial)]
 decompG<-decomp %>% filter(!is.na(decomp$NewTreat)) %>%
   mutate(NTF=factor(NewTreat))
 ggplot(decompG, aes(x=Day.decomp, y=per.lost, color=NewTreat))+
@@ -298,7 +210,8 @@ ggplot(decompG, aes(x=Day.decomp, y=per.lost, color=NewTreat))+
                      guide=guide_legend(override.aes=list(shape=c(23,22,21))),
                      labels=c("Control", "Dead Mussels","Live Mussels"))+ 
   scale_shape_manual(name = "Group", values = c(23, 22, 21), guide=F)+
-  scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")
+  scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")+
+  ylab("Percent Tensile Loss / Day")
 
 cottonplt<-ggplot(decompG, 
                   aes(x=Day.decomp, y=Tensile.lbs, 
@@ -316,7 +229,6 @@ cottonplt<-ggplot(decompG,
   scale_x_continuous(breaks=c(11,21,32), labels=c(18,28,38),name="Sampling Day")+
   scale_y_continuous(name="Tensile Strength (lbs)")+
   geom_hline(yintercept=65.6) +fronteirstheme+
-
   #theme(legend.position = c(0.05,.99), legend.direction = "horizontal",
   theme(legend.position = c(0.07,.2), legend.direction = "vertical")
         axis.text.x=element_text(size=rel(.6))
@@ -328,23 +240,17 @@ mean_sdl(as.matrix(decomp[is.na(decomp$NewTreat),5]), mult=1)
 # control strips were treated like other strips to account for natural variation 
 # in strip tensile strength, but were not placed in any streams
 # thus we excluded them from the statistics
-dc1<-lmer(Tensile.lbs~ NTF * Day.decomp + (1|Tank), 
+dc1<-lmer(Tensile.lbs~ NTF + Day.decomp+(1|Tank), 
           data=decompG, REML=F)
 anova(dc1)
 summary(dc1)
-confint(dc1)
 
-dc1st<-emmeans(dc1, pairwise~NTF:Day.decomp, adjust="tukey")
+#tukey's post hoc
+dc1st<-emmeans(dc1, pairwise~NTF, adjust="tukey")
 CLD(dc1st, alpha=.05, Letters=letters, adjust="tukey")
-
-dc2<-lmer(per.lost~ NTF*Day.decomp, data=decompG)
-anova(dc2)
-summary(dc2)
-dc2st<-emmeans(dc2, pairwise~NTF*Day.decomp, adjust="tukey")
-CLD(dc2st, alpha=.05, Letters=letters, adjust="tukey")
-
-ggplot(decomp, aes(x=Day.decomp, y=og.lost, fill=NewTreat)) +
-  geom_boxplot(aes(group=interaction(Day.decomp, NewTreat)))
+decompG %>% dplyr::group_by(NTF) %>% 
+  filter(kstrip!=-Inf) %>% #tensile strength=0, can't take ln()
+  dplyr::summarize(meanKstrip=mean(kstrip, na.rm=T))
 
 ##### assumptions
 hist(residuals(dc1),col="darkgrey") #normality of residuals
