@@ -17,11 +17,14 @@ Fish passed from too much stress. So to not have stressed mussels with no scient
 
 * 5b-FishData.R has code to address fish weight, length, and survival. It also includes analysis of invertebrate samples from this time too. Might need to source invertebrates.R or atleast run the start of the code.
 
+* 6-AnalysisBRMS.R has code for Bayesian BACI design. This builds response ratios from a regression (built on gamma distribution) that links response variable to tank identity and treatment:week effect. See Conner et al. 2016 for an overview.
+
 * MapMassMort.R has code for Figure 2 in the FEE paper. Its a map of SE Oklahoma and the Flint River.
 
 ## Products from this project:
 ### Articles in review:
 DuBose, T.P., Atkinson, C.L, Vaughn, C.C., Golladay, S.W. (2019) Drought-induced, punctuated loss of freshwater mussels alters ecosystem services at several timescales. Invited submission in review at Frontiers in Ecology and Evolution.
+
 DuBose, T.P., Ashford, K., Vaughn, C.C. Benefits of a parasite in drying systems: the presence of freshwater mussels increases survival in largemouth bass. Planned submission to Ecology of Freshwater Fish.
 
 ### Articles in prep:
@@ -29,4 +32,5 @@ Something about the macroinvertebrate samples I have and the mass mortality of m
 
 ### Conference Presentations:
 T.P. DuBose, C.C. Vaughn, C.L. Atkinson, & S.W. Golladay. "Drought-induced, punctuated loss of freshwater mussels alters ecosystem services: a mesocosm experiment" Presented at the Society of Freshwater Science Conference, Salt Lake City, UT. 
+
 T.P. DuBose, C.C. Vaughn, C.L. Atkinson, & S.W. Golladay. "Drought-induced, punctuated loss of freshwater mussels alters ecosystem services: a mesocosm experiment" Presented at the Freshwater Mussel Conservation Society Biennial Symposium, San Antonio, TX. 
