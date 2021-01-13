@@ -1,7 +1,7 @@
 library(readxl); library(lubridate); library(tidyverse)
 ##### Metabolism Analysis #####
-Met<-read_excel("./data/CostMutMetabolism.xlsx",sheet = 1) #metabolism data
-treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
+Met<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx", sheet = "Metabolism") #metabolism data
+treat<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx", sheet="TankData") #treatment data
 
 discA=(pi*(27.5/2)^2)/100 #area of discs in cm2
 
@@ -88,8 +88,8 @@ GPP<-ggplot(Metstats,
 
 
 ##### Chlorophyll Analysis #####
-Chl<-read_excel("./data/CostMutData.xlsx",sheet = "CHL") #chlorophyll data
-physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem") %>% 
+Chl<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet = "CHL") #chlorophyll data
+physchem<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet = "PhysioChem") %>% 
   mutate(Date=date(Time))
 
 #building a key to link tiles to the tanks they were taken from
@@ -183,7 +183,7 @@ discCor$resid<-residuals(dcMOD)
 
 
 ##### Decomposers - cotton strips #####
-cotton<-read_excel("./data/Traci_Popejoy_tensile_data_2018.xlsx")
+cotton<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx", sheet="StripDecomp")
 
 # using cotton strips to determine organic matter decomposition in the tanks
 # quantification methods follow Tiegs et al 2013

@@ -1,7 +1,7 @@
 #### Mussel Communities ####
 library(readxl); library(tidyverse)
 
-MusselRaw<-read_excel("./data/CostMutData.xlsx",sheet = "MusselLengths") %>%
+MusselRaw<-read_excel("./data/Mussel.xlsx",sheet = "MusselLengths") %>%
   add_column(BME=rep(NA,279))
 #who is in this community by tank
 MusselRaw %>% group_by(Tank, Spp) %>% summarise(n=n()) %>% spread(Spp, n)
@@ -42,7 +42,7 @@ write.csv(bigComdata, "musselcomdata.csv")
 ### Mussel density = 8.25/m2, Fish density = 2.66/m2
 
 #### Mussel Tissue Decay ####
-DeathWeight<-read_excel("./data/CostMutData.xlsx",sheet = "DeathWeights")
+DeathWeight<-read_excel("./data/Mussel.xlsx",sheet = "DeathWeights")
 
 mDW<-DeathWeight %>% 
   gather(Date, Weight, -Tank, -Mussel)

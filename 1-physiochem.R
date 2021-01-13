@@ -67,7 +67,7 @@ ggplot(airTemp, aes(x=TimeCST, y=temperature))+
   
 
 library(readxl)
-physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
+physchem<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet = "PhysioChem")
 physchem[,"Date"]<-as.Date(physchem$Time)
 head(physchem)
 physchem %>% filter(Week!=5) %>% summarize(mean(hms(Time)))
@@ -79,23 +79,6 @@ DOdiff<-physchem %>% mutate(DOdif=case_when(Week==1 ~ DO.mgL-7.42,
 ggplot(DOdiff, aes(x=Treatment, y=DOdif, color=Treatment))+
   geom_point()+geom_hline(yintercept = 0)+facet_wrap(~Week)
 summary(Anova(lm(DOdif~Treatment*Week, DOdiff)))
-
-histTemp<-read_excel("./data/CostMutData.xlsx",sheet = "HistWeath") #accuweather
-histTemp$TempC<-(histTemp$HistTemps-32)*.5556
-
-ggplot()+
-  geom_line(data=airTemp, aes(x=TimeCST, y=TempC), size=1) +
-  geom_line(data=watertempGood[watertempGood$Tank=="L",],
-            aes(x=GoodDate,y=GoodTC, group=Tank),color="blue",
-            size=1.1)+
-  geom_hline(yintercept = 35, color="red", size=1.1)+
-  geom_point(data=physchem, aes(x=Time, y=Temp.C), color="blue")+
-  #geom_point(aes(x=ymd_hm("2018-06-28 14:00"), y=37), color="black")+
-  #geom_point(data=histTemp, aes(x=Date, y=TempC), color="red", size=3)+
-  ylab(expression("Temperature" *~degree*C)) + xlab("Date")+
-  ylim(22,37)+
-  xlim(ymd_hms("2018-06-18 00:00:00"), ymd_hms("2018-06-29 08:00:00"))+theme_bw()
-ggsave("Temperature.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 #### covariate table ####
 head(physchem)

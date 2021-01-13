@@ -1,6 +1,6 @@
 library(readxl)
-fish<-read_excel("./data/CostMutData.xlsx", sheet="FishData")
-treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
+fish<-read_excel("./data/Fish.xlsx", sheet="FishData")
+treat<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet="TankData")
 library(tidyverse)
 library(lubridate)
 FishData <-left_join(fish,treat, by="Tank") %>% 
@@ -128,7 +128,8 @@ ggplot(FishData, aes(x=Died, y=StandLength.mm, color=TreatmentType))+
 
 #### Invertebrate Analysis ####
 library(ggsci)
-#InvBioMass found in invertebrates.R
+#source('4-invertebrates.R')
+#InvBioMass found in 4-invertebrates.R
 #calculates biomass of invertebrates from entire experiment
 InvBioMass %>% filter(Week==1 | Week==2) %>% group_by(Taxa) %>% 
   summarise(sumC=sum(Count),sumBM=sum(TotalBM)) %>% arrange(desc(sumC))
@@ -220,6 +221,24 @@ anova(Bbio)
 hist(residuals(Bbio),col="darkgrey") #normal distribution
 qqnorm(resid(Bbio)); qqline(resid(Bbio)) 
 
+InvFishBMSum %>% group_by(Treatment, Week) %>% summarize(median(Avg.BM),
+                                                         mean(Avg.BM),
+                                                         median(AvgLength),
+                                                         mean(CountDensity))
+sizeInv<-InvBioMass %>% filter(Week==1 | Week==2, Length.mm>=1) 
+sizeInv.exp<-sizeInv[rep(row.names(sizeInv), sizeInv$Count), c(2:6,14)]
+bmdist<-ggplot(sizeInv.exp, aes(x=Week, y=BM))+
+  #geom_violin(fill="black")+
+  geom_boxplot()+
+  #scale_y_continuous(trans="log")+
+  facet_grid(~Treatment)
+sizedist<-ggplot(sizeInv.exp, aes(x=Week, y=Length.mm))+
+   # geom_violin(fill="black")+
+  geom_boxplot(alpha=.5)+
+  #scale_y_continuous(trans="log")+
+  facet_grid(~Treatment)
+library(cowplot)
+plot_grid(bmdist, sizedist)
 ##### COX Regression #####
 #need to have a list with dataframes of time, status, and variables to consider
 FishSurv1<-FishData %>% filter(Died >= ymd("2018-06-20")) %>% 
@@ -318,7 +337,7 @@ modelTableM<-full_join(FullModels, loglikely, by="model") %>% arrange(deltaBIC) 
   select(model, variables, df, BIC, deltaBIC, loglik, rsq, logp.val)
 library(survminer)
 TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
-           pval = F, conf.int = T,
+           pval = F, conf.int = F,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
            linetype = 1, # Change line type by groups
@@ -330,18 +349,18 @@ TsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~Treatment, data=FST),
            legend.labs=c("Control","Mussel"),
            xlab="Time (days)")
 IsurvP<-ggsurvplot(survfit(Surv(timeNumA, status)~value, data=FST),
-           pval = F, conf.int = T,
+           pval = F, conf.int = F,
            risk.table = F, # Add risk table
            risk.table.col = "strata", # Change risk table color by groups
-           linetype = c(3,4), # Change line type by groups
-           palette=c("black","grey"),
+           #linetype = c(2,3), # Change line type by groups
+           palette=c("darkgrey","lightgrey"),
            surv.median.line = "hv",
            legend.title="Infect. Status",
            legend.labs=c("Not Infected","Infected"),
            xlab="Time (days)",ylab="")
 #library(cowplot)
 survplots<-plot_grid(TsurvP$plot, IsurvP$plot, labels = c("(a)","(b)"))
-ggsave("FishFig2.tiff",survplots, width=7, height=3.5, dpi=300)
+ggsave("FishFigures/FishFig3.tiff",survplots, width=7, height=3.5, dpi=300)
 
 R1<-coxph(Surv(timeNumA, status)~Treatment+value+Cum.30over, data=FSTreduced)
 summary(R1)

@@ -140,10 +140,10 @@ okmap<-ggplot()+
   geom_polygon(data=oklakestidy, aes(x=long,y=lat,group=group), 
                fill="lightblue")+
   geom_polygon(data=states, aes(x=long, y=lat, group=group), fill=NA, color="darkgrey")+
-  geom_point(aes(x=c(-95.354508,-95.062153), y=c(34.574689,34.6569991)), 
+  geom_point(aes(x=c(-95.354508,-95.579947), y=c(34.574689,34.427755)), 
              color="black", fill="white",size=1.5, shape=24)+
-  geom_text(aes(x=c(-95.33,-95.01), y=c(34.522,34.611)), 
-          label=c("K3","K2"), size=3)+
+  #geom_text(aes(x=c(-95.33,-95.57), y=c(34.522,34.5)), 
+  #        label=c("K2","K3"), size=3)+
   xlab("Longitude")+ylab("Latitude")+
   coord_map(xlim=c(-95.7, -94.22),ylim=c(33.87,34.75))+theme_bw()+
   scale_bar(lon = -95.65, lat = 33.95, distance_lon = 10, distance_lat = 3, 
@@ -157,7 +157,7 @@ okmap<-ggplot()+
         axis.ticks.y = element_blank(), axis.title = element_blank(),
         rect = element_blank(),
         plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines"))
-ggsave("okmap2.tiff", okmap,dpi=300, width=3, height=3.3)
+ggsave("okmap2.tiff", okmap,dpi=300, width=3.5, height=3.5)
 gamap<-ggplot()+
   geom_path(data=GAflow, aes(x=long, y=lat, group=group), 
             color="lightblue")+

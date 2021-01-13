@@ -3,11 +3,11 @@ library(vegan); library(readxl)
 
 #############     Invert Data in Benthic Samples    ##############
 #bring in enclosure and treatment data, trait/taxa list, and length weight regressions
-treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData")
+treat<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet="TankData")
 head(treat)
 BiomassReg<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx") #regressions excel sheet
 #THIS IS THE INSECT DATA
-Inv<-read_excel("./data/CostMutData.xlsx", sheet="BenthicMacroInvert",
+Inv<-read_excel("./data/Macroinvertebrates.xlsx", sheet="BenthicMacroInvert",
                 col_types=c("guess","text","guess","numeric","numeric",
                             "guess","guess")) %>%
   dplyr::select(-Notes) %>%
@@ -256,7 +256,7 @@ ggplot(IBMorder,aes(x=Date,y=OrelA, color=Order, fill=Order, shape=Order))+
 ###### Invertebrates in Water Column Samples ######
 #area sampled in cm3
 library(tidyverse);library(readxl)
-WCinvertRaw<-read_excel("./data/CostMutData.xlsx",sheet = "WaterColumnInv",
+WCinvertRaw<-read_excel("./data/Macroinvertebrates.xlsx",sheet = "WaterColumnInv",
                         col_types = c("text","numeric","text","text","numeric","numeric","numeric"))
 WCinvInd<-WCinvertRaw %>% 
   mutate(Sample=paste(Tank, Week, CountN, sep="."),

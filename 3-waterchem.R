@@ -1,6 +1,6 @@
 library(Hmisc);library(readxl); library(ggplot2); library(tidyverse)
-treat<-read_excel("./data/CostMutData.xlsx",sheet="TankData") #treatment data
-nitrogen<-read_xlsx("./data/WaterNutrients.xlsx", sheet="Ammonia") #ammonia absorbance
+treat<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet="TankData") #treatment data
+nitrogen<-read_xlsx("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx", sheet="Ammonia") #ammonia absorbance
 #isolate nitrogen standards
 nitstand<-nitrogen %>% filter(Type=="standard")
 
@@ -27,7 +27,7 @@ NH3WaterNuts<-NH3raw %>%
             UnFiltNH3ugL=mean(`WCN `, na.rm=T))
 
 #### phosphorus readings ####
-phosphorus<-read_xlsx("./data/WaterNutrients.xlsx", sheet="SRP")
+phosphorus<-read_xlsx("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx", sheet="SRP")
 #isolate the phosphorus standards
 phosstand<-phosphorus %>% filter(Type=="standard")%>% filter(ActualSRP.ug.L!=640)
 
@@ -54,7 +54,7 @@ SRPWaterNuts<-SRPraw %>%
             UnFiltSRPugL=mean(`WCN `, na.rm=T))
 #using physchem to add dates to the table
 #head(physchem) #in physiochem.R script
-physchem<-read_excel("./data/CostMutData.xlsx",sheet = "PhysioChem")
+physchem<-read_excel("./data/Mesocosm_WaterQuality_MicrobialAct.xlsx",sheet = "PhysioChem")
 physchem[,"Date"]<-as.Date(physchem$Time)
 library(lubridate)
 # joining with physchem and calculating molar ratio between the samples
