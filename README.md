@@ -21,11 +21,13 @@ Fish passed from too much stress. So to not have stressed mussels with no scient
 
 * MapMassMort.R has code for Figure 2 in the FEE paper. Its a map of SE Oklahoma and the Flint River.
 
-## Products from this project:
-### Articles in review:
-DuBose, T.P., Atkinson, C.L, Vaughn, C.C., Golladay, S.W. (2019) Drought-induced, punctuated loss of freshwater mussels alters ecosystem services at several timescales. Invited submission in review at Frontiers in Ecology and Evolution.
+## Data
 
-DuBose, T.P., Ashford, K., Vaughn, C.C. Benefits of a parasite in drying systems: the presence of freshwater mussels increases survival in largemouth bass. Planned submission to Ecology of Freshwater Fish.
+
+## Products from this project:
+DuBose, T.P., Atkinson, C.L, Vaughn, C.C., Golladay, S.W. (2019) Drought-induced, punctuated loss of freshwater mussels alters ecosystem services at several timescales. Frontiers in Ecology and Evolution.
+
+DuBose, T.P., Ashford, K., Vaughn, C.C. (2020) Benefits of a parasite in drying systems: the presence of freshwater mussels increases survival in largemouth bass. Ecology of Freshwater Fish.
 
 ### Articles in prep:
 Something about the macroinvertebrate samples I have and the mass mortality of mussels.
